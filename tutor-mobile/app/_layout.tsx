@@ -23,6 +23,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="create-topic" options={{ presentation: 'card', title: 'Create Topic' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
