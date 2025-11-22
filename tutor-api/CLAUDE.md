@@ -8,6 +8,7 @@ A modern TypeScript API server built with Fastify, tRPC, and DBOS for durable ex
 - **Web Framework**: Fastify 5.x
 - **API Layer**: tRPC 11.x
 - **Durable Execution**: DBOS SDK 4.x
+- **Authentication**: Clerk (via @clerk/fastify)
 - **Validation**: Zod 4.x
 - **Database**: PostgreSQL (via DBOS)
 - **Package Manager**: pnpm
@@ -27,6 +28,15 @@ DBOS provides durable execution for workflows. This means:
 - **Built-in retries**: Steps can be configured to retry on failure
 - **Workflow tracking**: All executions are tracked with IDs and can be monitored
 - **No lost work**: Every step is durably recorded in PostgreSQL
+
+### Authentication
+
+Uses **Clerk** for secure user authentication:
+- **clerkPlugin** registered in Fastify before tRPC
+- **Context** extracts `userId` from Clerk via `getAuth(request)`
+- **Middleware** enforces authentication on protected procedures
+- **protectedProcedure** - tRPC procedure that requires authentication
+- **publicProcedure** - tRPC procedure accessible without auth
 
 ## Project Structure
 
@@ -64,10 +74,14 @@ tutor-api/
    ```
 
 3. **Environment variables**:
-   Create `.env.development` with:
+   Create `.env` (or `.env.development`) with:
    ```
    DBOS_SYSTEM_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tutorappdevdb
+   CLERK_PUBLISHABLE_KEY=pk_test_...
+   CLERK_SECRET_KEY=sk_test_...
    ```
+   
+   **Important**: `dotenv/config` must be imported at the very top of `server.ts` before any Clerk modules.
 
 4. **Run development server**:
    ```bash
@@ -130,6 +144,27 @@ curl -X POST http://localhost:3000/trpc/greeting.execute \
     "data": {
       "success": true,
       "message": "Greeting workflow completed successfully!"
+    }
+  }
+}
+```
+
+### `user.welcome` (Query) - Protected
+
+Returns personalized welcome message. Requires authentication via Clerk token.
+
+**Request**:
+```bash
+curl "http://localhost:3000/trpc/user.welcome" \
+  -H "Authorization: Bearer <clerk_session_token>"
+```
+
+**Response**:
+```json
+{
+  "result": {
+    "data": {
+      "message": "Welcome, FirstName!"
     }
   }
 }
