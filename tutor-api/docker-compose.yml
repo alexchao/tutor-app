@@ -9,7 +9,7 @@ services:
       - .env.development
     environment:
       POSTGRES_USER: ${PGUSER:-postgres}
-      POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-dbos}
       POSTGRES_DB: ${PGDATABASE:-tutorappdevdb}
     ports:
       - "${PGPORT:-5432}:5432"
