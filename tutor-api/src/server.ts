@@ -1,15 +1,15 @@
-import dotenv from "dotenv";
-import { DBOS } from "@dbos-inc/dbos-sdk";
+// IMPORTANT: Load environment variables BEFORE any other imports
+// Clerk requires env vars to be loaded before it's imported
+// Use side-effect import for immediate execution
+import "dotenv/config";
 
-// Only load dotenv in development
-if (process.env.NODE_ENV !== "production") {
-  dotenv.config({ path: ".env.development" });
-}
+import { DBOS } from "@dbos-inc/dbos-sdk";
 import {
   fastifyTRPCPlugin,
   type FastifyTRPCPluginOptions,
 } from "@trpc/server/adapters/fastify";
 import fastify from "fastify";
+import { clerkPlugin } from "@clerk/fastify";
 import { createContext } from "./context.js";
 import { appRouter, type AppRouter } from "./router.js";
 
@@ -28,6 +28,9 @@ async function main(): Promise<void> {
     disableRequestLogging: false,
     maxParamLength: 5000,
   });
+
+  // Register Clerk plugin for authentication
+  await server.register(clerkPlugin);
 
   // Register tRPC plugin
   await server.register(fastifyTRPCPlugin, {
