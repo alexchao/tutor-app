@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { trpc } from '@/lib/trpc';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
@@ -8,15 +8,30 @@ import { Colors } from '@/constants/theme';
 export default function BrainDumpScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const router = useRouter();
   const { topicId } = useLocalSearchParams<{ topicId: string }>();
   const [response, setResponse] = useState('');
 
   const topicQuery = trpc.learningTopics.list.useQuery();
   const topic = topicQuery.data?.find(t => t.id.toString() === topicId);
 
+  const submitMutation = trpc.practice.submitBrainDump.useMutation({
+    onSuccess: (data) => {
+      router.replace(`/practice/results/${data.submissionId}`);
+    },
+    onError: (error) => {
+      Alert.alert('Error', error.message);
+    },
+  });
+
   const handleSubmit = () => {
-    // TODO: Submit functionality will be implemented later
-    console.log('Brain dump response:', response);
+    if (!topic) return;
+    
+    submitMutation.mutate({
+      learningTopicId: topic.id,
+      questionPrompt: 'Explain as much as you can about this topic.',
+      studentResponse: response,
+    });
   };
 
   if (topicQuery.isLoading) {
@@ -74,12 +89,14 @@ export default function BrainDumpScreen() {
             style={[
               styles.submitButton,
               { backgroundColor: colors.tint },
-              !response.trim() && styles.submitButtonDisabled
+              (!response.trim() || submitMutation.isPending) && styles.submitButtonDisabled
             ]}
             onPress={handleSubmit}
-            disabled={!response.trim()}
+            disabled={!response.trim() || submitMutation.isPending}
           >
-            <Text style={styles.submitButtonText}>Submit</Text>
+            <Text style={styles.submitButtonText}>
+              {submitMutation.isPending ? 'Submitting...' : 'Submit'}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

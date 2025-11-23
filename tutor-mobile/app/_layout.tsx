@@ -26,6 +26,7 @@ function RootLayoutNav() {
         <Stack.Screen name="create-topic" options={{ presentation: 'card', title: 'Create Topic' }} />
         <Stack.Screen name="practice-options/[topicId]" options={{ presentation: 'card' }} />
         <Stack.Screen name="practice/brain-dump/[topicId]" options={{ presentation: 'card' }} />
+        <Stack.Screen name="practice/results/[submissionId]" options={{ presentation: 'card' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

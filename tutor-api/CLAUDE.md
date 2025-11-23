@@ -190,7 +190,7 @@ The workflow demonstrates DBOS's durable execution:
 
 The server uses different environment loading strategies:
 
-- **Development**: Loads `.env.development` via dotenv
+- **Development**: Loads `.env` via dotenv
 - **Production**: Expects environment variables to be set by the hosting platform
 
 This is controlled by the `NODE_ENV` variable in `src/server.ts`.
@@ -284,7 +284,7 @@ Ensure PostgreSQL is running:
 docker-compose ps
 ```
 
-Check connection string in `.env.development`.
+Check connection string in `.env`.
 
 ### TypeScript Errors
 

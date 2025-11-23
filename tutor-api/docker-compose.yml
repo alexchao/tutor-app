@@ -6,7 +6,7 @@ services:
     container_name: tutor-app-db
     restart: unless-stopped
     env_file:
-      - .env.development
+      - .env
     environment:
       POSTGRES_USER: ${PGUSER:-postgres}
       POSTGRES_PASSWORD: ${PGPASSWORD:-dbos}
