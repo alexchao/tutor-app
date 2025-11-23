@@ -65,11 +65,42 @@ ${studentResponse}
 </student_response>
 
 Based on the source material, identify 3-7 concrete criteria that the response should have covered. The number of criteria should be proportional to the scope and length of the source material.
+  
+## Criteria Selection
+
+Each criterion should be a single concept or idea that the student should have covered in their response
+
+- Narrow in scope: Criteria should be narrowly focused on a single concept or idea. Do not include multiple concepts in a single criterion.
+- Grounded in the source material: Only include criteria that directly relate to the content of the source material. Do NOT include any criteria regarding the format, grammar, style, etc. of the response.
+- Avoid overlap: Do not include criteria that are essentially the same thing or that have significant conceptual overlap.
+
+## Criteria Titles
+
+- Write a short title for each criterion (3-8 words)
+  
+## Criteria Judgment
 
 For each criterion, evaluate whether it was:
 - SATISFIED: The student clearly addressed this criterion
 - PARTIALLY_SATISFIED: The student mentioned it but incompletely or with errors
 - NOT_SATISFIED: The student did not address this criterion
+
+## Feedback Guidance
+
+- If the student satisfied the criterion, provide specific feedback on what they did well. Keep positive feedback short.
+- If the student did not satisfy the criterion, provide specific feedback on what they missed or got wrong, and what they needed to have said to satisfy the criterion.
+- Feedback format (for each criterion) should be a single paragraph of text (1-2 sentences, AT MOST 3 short sentences). You may use **markdown bold** to emphasize key points. Do NOT use any other markdown formatting.
+  
+### Feedback Language
+
+- Straightforward and objective.
+- Avoid pleasantries.
+- Do NOT mention "the source" in any way; simply speak as if referencing factual knowledge.
+  - e.g. Rather than "The source explains that the French Revolution was caused by...", simply say "The French Revolution was caused by...".
+
+Example feedback: 'You hinted at the correct idea by saying "<direct quote from student response>". However, you didn't explicitly explain that [...]. Expand on what [...] means in practice.'
+
+## Output Format
 
 Return a JSON object with an array of criteria, each containing:
 - title: A concise name for the criterion
