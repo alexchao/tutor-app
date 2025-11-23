@@ -24,6 +24,8 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         <Stack.Screen name="create-topic" options={{ presentation: 'card', title: 'Create Topic' }} />
+        <Stack.Screen name="practice-options/[topicId]" options={{ presentation: 'card' }} />
+        <Stack.Screen name="practice/brain-dump/[topicId]" options={{ presentation: 'card' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

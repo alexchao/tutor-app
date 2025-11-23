@@ -50,9 +50,17 @@ export default function TopicsScreen() {
               <Text style={[styles.topicContent, { color: colors.text }]} numberOfLines={3}>
                 {item.contentMd}
               </Text>
-              <Text style={[styles.topicDate, { color: colors.tabIconDefault }]}>
-                {new Date(item.createdAt).toLocaleDateString()}
-              </Text>
+              <View style={styles.topicFooter}>
+                <Text style={[styles.topicDate, { color: colors.tabIconDefault }]}>
+                  {new Date(item.createdAt).toLocaleDateString()}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.practiceButton, { backgroundColor: colors.tint }]}
+                  onPress={() => router.push(`/practice-options/${item.id}`)}
+                >
+                  <Text style={styles.practiceButtonText}>Practice</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         />
@@ -137,6 +145,22 @@ const styles = StyleSheet.create({
   },
   topicDate: {
     fontSize: 12,
+  },
+  topicFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  practiceButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  practiceButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   emptyText: {
     fontSize: 16,
