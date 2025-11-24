@@ -1,9 +1,9 @@
 import { DBOS } from '@dbos-inc/dbos-sdk';
 import { streamText } from 'ai';
-import { openai } from '../lib/openai.js';
-import { ablyClient } from '../lib/ably.js';
-import { db } from '../db/connection.js';
-import { drillSessions, learningTopics } from '../db/schema.js';
+import { openai } from '../../lib/openai.js';
+import { ablyClient } from '../../lib/ably.js';
+import { db } from '../../db/connection.js';
+import { drillSessions, learningTopics } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 
 interface ChatEvent {
