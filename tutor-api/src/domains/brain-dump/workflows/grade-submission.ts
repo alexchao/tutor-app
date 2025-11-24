@@ -1,9 +1,9 @@
 import { DBOS } from "@dbos-inc/dbos-sdk";
 import { streamObject } from 'ai';
-import { openai } from '../../lib/openai.js';
+import { openai } from '../../../lib/openai.js';
 import { z } from 'zod';
-import { db } from '../../db/connection.js';
-import { practiceQuestionSubmissions, learningTopics } from '../../db/schema.js';
+import { db } from '../../../db/connection.js';
+import { practiceQuestionSubmissions, learningTopics } from '../../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 // Grading result schema

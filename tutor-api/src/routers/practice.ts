@@ -3,7 +3,7 @@ import { protectedProcedure } from '../procedures.js';
 import { db } from '../db/connection.js';
 import { practiceQuestionSubmissions } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
-import { gradeSubmissionWorkflow } from '../domains/brain-dump/workflows.js';
+import { gradeSubmissionWorkflow } from '../domains/brain-dump/workflows/index.js';
 import { DBOS } from '@dbos-inc/dbos-sdk';
 
 export const practiceRouter = {

@@ -5,7 +5,7 @@ import { drillSessions, learningTopics } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { DBOS } from '@dbos-inc/dbos-sdk';
-import { processDrillMessageWorkflow } from '../domains/drill/workflows.js';
+import { processDrillMessageWorkflow } from '../domains/drill/workflows/index.js';
 
 const focusSelectionSchema = z.object({
   focusType: z.literal('custom'),
