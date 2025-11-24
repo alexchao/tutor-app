@@ -62,16 +62,22 @@ const FORMATTING_INSTRUCTIONS = `## Formatting
 
 const DRILL_PLAN_SECTION = `## Drill Plan
 
-Progress through these phases in order.
+In your interaction with the user, progress through these phases in order.
 
 <drill_phases>
 {{phasesWithStatus}}
 </drill_phases>
 
+{{currentPhaseInstruction}}
+
 ### When to Mark a Phase Complete
 
-Mark a phase complete **ONLY when the student has demonstrated sufficient understanding of the phase OR you have covered it sufficiently and are ready to move on**.
-`;
+Mark a phase complete ONLY after you have:
+- Asked at least 2-3 questions about this phase's topic
+- Received answers from the user demonstrating understanding OR explained the answer to them
+- Are ready to move to the next phase
+
+Do NOT mention the existence of phases to the user.`;
 
 // Drill system prompt templates
 const drillSystemPromptBaseTemplate = `You are a helpful tutor quizzing a student about the following topic:
@@ -192,15 +198,28 @@ async function streamLLMResponseStep(
   drillPlan: DrillPlanWithProgress
 ): Promise<string> {
   // Build drill plan phases with status
+  // Find the current phase (earliest incomplete one)
+  const currentPhase = drillPlan.phases.find(
+    (phase) => drillPlan.planProgress[phase.id]?.status !== 'complete'
+  );
+
   const phasesWithStatus = drillPlan.phases
     .map((phase, index) => {
       const status = drillPlan.planProgress[phase.id]?.status ?? 'incomplete';
-      return `${index + 1}. [${status}] ${phase.title} (id: ${phase.id})`;
+      const isCurrent = currentPhase?.id === phase.id;
+      const currentMarker = isCurrent ? ' ← current' : '';
+      return `${index + 1}. [${status}] ${phase.title} (id: ${phase.id})${currentMarker}`;
     })
     .join('\n');
 
+  // Build instruction for current phase
+  const currentPhaseInstruction = currentPhase
+    ? `Focus on the "${currentPhase.title}" phase. Mark it complete when the user has demonstrated understanding or you have provided explanations.`
+    : 'All phases are complete. Wrap up the session.';
+
   const drillPlanSection = interpolatePromptVariables(DRILL_PLAN_SECTION, {
     phasesWithStatus,
+    currentPhaseInstruction,
   });
 
   // Build system prompt
@@ -228,7 +247,7 @@ async function streamLLMResponseStep(
 
   // Create markPhaseComplete tool with closure over session state
   const markPhaseCompleteTool = tool({
-    description: 'Mark a drill phase as complete when the student has demonstrated understanding',
+    description: 'Mark a drill phase as complete after you have covered it sufficiently with the user and are ready to move on',
     inputSchema: z.object({
       phaseId: z.string().describe('The ID of the phase to mark as complete'),
     }),
@@ -267,6 +286,8 @@ async function streamLLMResponseStep(
       return { success: true, phaseId };
     },
   });
+  
+  console.log('Calling streamText with system prompt:', systemPrompt);
 
   // Stream LLM response
   // When messages is empty (AI goes first), use prompt instead
@@ -276,14 +297,24 @@ async function streamLLMResponseStep(
         system: systemPrompt,
         messages: messages as any,
         tools: { markPhaseComplete: markPhaseCompleteTool },
-        stopWhen: stepCountIs(5)
+        providerOptions: {
+          openai: {
+            reasoningEffort: 'low',
+          },
+        },
+        stopWhen: stepCountIs(2)
       })
     : streamText({
         model: openai('gpt-5.1-2025-11-13'),
         system: systemPrompt,
         prompt: 'Start the drill with a brief greeting and your first question.',
         tools: { markPhaseComplete: markPhaseCompleteTool },
-        stopWhen: stepCountIs(5)
+        providerOptions: {
+          openai: {
+            reasoningEffort: 'low',
+          },
+        },
+        stopWhen: stepCountIs(2)
       });
 
   const channel = ablyClient.channels.get(`drill:${sessionId}`);
