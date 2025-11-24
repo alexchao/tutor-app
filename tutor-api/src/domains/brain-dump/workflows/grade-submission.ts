@@ -5,47 +5,25 @@ import { z } from 'zod';
 import { db } from '../../../db/connection.js';
 import { practiceQuestionSubmissions, learningTopics } from '../../../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { interpolatePromptVariables } from '../../../utils/interpolate-prompt-variables.js';
 
-// Grading result schema
-const criterionSchema = z.object({
-  title: z.string(),
-  result: z.enum(['SATISFIED', 'PARTIALLY_SATISFIED', 'NOT_SATISFIED']),
-  feedbackMd: z.string(),
-});
-
-const gradingResultSchema = z.object({
-  criteria: z.array(criterionSchema),
-});
-
-interface GradeSubmissionInput {
-  submissionId: number;
-}
-
-async function performGradingStep(
-  topicTitle: string,
-  topicContent: string,
-  questionPrompt: string,
-  studentResponse: string
-): Promise<z.infer<typeof gradingResultSchema>> {
-  const { partialObjectStream } = streamObject({
-    model: openai('gpt-5.1-2025-11-13'),
-    schema: gradingResultSchema,
-    prompt: `You are grading a student's response to a practice question about a learning topic.
+// Grading prompt template
+const gradingPromptTemplate = `You are grading a student's response to a practice question about a learning topic.
 
 <topic_title>
-${topicTitle}
+{{topicTitle}}
 </topic_title>
 
 <source_material>
-${topicContent}
+{{topicContent}}
 </source_material>
 
 <question_prompt>
-${questionPrompt}
+{{questionPrompt}}
 </question_prompt>
 
 <student_response>
-${studentResponse}
+{{studentResponse}}
 </student_response>
 
 Based on the source material, identify 3-7 concrete criteria that the response should have covered. The number of criteria should be proportional to the scope and length of the source material.
@@ -89,7 +67,40 @@ Example feedback: 'You hinted at the correct idea by saying "<direct quote from 
 Return a JSON object with an array of criteria, each containing:
 - title: A concise name for the criterion
 - result: SATISFIED | PARTIALLY_SATISFIED | NOT_SATISFIED
-- feedbackMd: Specific feedback with **markdown formatting** explaining why this result was given`,
+- feedbackMd: Specific feedback with **markdown formatting** explaining why this result was given`;
+
+// Grading result schema
+const criterionSchema = z.object({
+  title: z.string(),
+  result: z.enum(['SATISFIED', 'PARTIALLY_SATISFIED', 'NOT_SATISFIED']),
+  feedbackMd: z.string(),
+});
+
+const gradingResultSchema = z.object({
+  criteria: z.array(criterionSchema),
+});
+
+interface GradeSubmissionInput {
+  submissionId: number;
+}
+
+async function performGradingStep(
+  topicTitle: string,
+  topicContent: string,
+  questionPrompt: string,
+  studentResponse: string
+): Promise<z.infer<typeof gradingResultSchema>> {
+  const prompt = interpolatePromptVariables(gradingPromptTemplate, {
+    topicTitle,
+    topicContent,
+    questionPrompt,
+    studentResponse,
+  });
+
+  const { partialObjectStream } = streamObject({
+    model: openai('gpt-5.1-2025-11-13'),
+    schema: gradingResultSchema,
+    prompt,
   });
 
   // Consume the stream and get the final result
