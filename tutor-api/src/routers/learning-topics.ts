@@ -2,13 +2,14 @@ import { z } from 'zod';
 import { protectedProcedure } from '../procedures.js';
 import { db } from '../db/connection.js';
 import { learningTopics } from '../db/schema.js';
-import { desc } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 
 export const learningTopicsRouter = {
-  list: protectedProcedure.query(async () => {
+  list: protectedProcedure.query(async ({ ctx }) => {
     return await db
       .select()
       .from(learningTopics)
+      .where(eq(learningTopics.userId, ctx.userId))
       .orderBy(desc(learningTopics.createdAt));
   }),
 
@@ -19,10 +20,13 @@ export const learningTopicsRouter = {
         contentMd: z.string().min(1, 'Content is required'),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const [newTopic] = await db
         .insert(learningTopics)
-        .values(input)
+        .values({
+          ...input,
+          userId: ctx.userId,
+        })
         .returning();
       return newTopic;
     }),

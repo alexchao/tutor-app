@@ -1,0 +1,5 @@
+---
+description: Schema changes, database migrations, drizzle usage
+alwaysApply: false
+---
+Never generate or apply DB migrations using drizzle kit. The user will do that himself.

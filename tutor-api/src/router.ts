@@ -4,6 +4,7 @@ import type { Context } from "./context.js";
 import { greetingWorkflow } from "./workflows.js";
 import { learningTopicsRouter } from "./routers/learning-topics.js";
 import { practiceRouter } from "./routers/practice.js";
+import { drillRouter } from "./routers/drill.js";
 import { publicProcedure, protectedProcedure } from "./procedures.js";
 
 const t = initTRPC.context<Context>().create();
@@ -37,6 +38,7 @@ export const appRouter = t.router({
   }),
   learningTopics: t.router(learningTopicsRouter),
   practice: t.router(practiceRouter),
+  drill: t.router(drillRouter),
 });
 
 export type AppRouter = typeof appRouter;

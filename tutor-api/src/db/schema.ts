@@ -2,6 +2,7 @@ import { pgTable, serial, text, timestamp, integer, jsonb, pgEnum } from 'drizzl
 
 export const learningTopics = pgTable('learning_topics', {
   id: serial('id').primaryKey(),
+  userId: text('user_id').notNull(),
   title: text('title').notNull(),
   contentMd: text('content_md').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -30,4 +31,17 @@ export const practiceQuestionSubmissions = pgTable('practice_question_submission
 
 export type PracticeQuestionSubmission = typeof practiceQuestionSubmissions.$inferSelect;
 export type NewPracticeQuestionSubmission = typeof practiceQuestionSubmissions.$inferInsert;
+
+// Drill sessions table
+export const drillSessions = pgTable('drill_sessions', {
+  id: serial('id').primaryKey(),
+  learningTopicId: integer('learning_topic_id').notNull().references(() => learningTopics.id),
+  userId: text('user_id').notNull(),
+  focusSelection: jsonb('focus_selection'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
+export type DrillSession = typeof drillSessions.$inferSelect;
+export type NewDrillSession = typeof drillSessions.$inferInsert;
 

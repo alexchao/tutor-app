@@ -52,6 +52,19 @@ export default function PracticeOptionsScreen() {
             </Card.Content>
           </Card>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => router.push(`/practice/drill/focus/${topicId}`)}
+        >
+          <Card style={styles.optionCard}>
+            <Card.Content>
+              <Text variant="titleLarge" style={styles.optionTitle}>Drill</Text>
+              <Text variant="bodyMedium" style={styles.optionDescription}>
+                Chat-based quiz to test your knowledge
+              </Text>
+            </Card.Content>
+          </Card>
+        </TouchableOpacity>
       </View>
     </>
   );
