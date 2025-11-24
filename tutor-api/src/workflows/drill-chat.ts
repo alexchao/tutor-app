@@ -122,18 +122,39 @@ ${topicContent}
   const channel = ablyClient.channels.get(`drill:${sessionId}`);
   let fullResponse = '';
 
+  // Batch deltas to reduce Ably message count (50 msg/sec limit)
+  // Accumulate tokens and flush every BATCH_INTERVAL_MS
+  const BATCH_INTERVAL_MS = 50;
+  let pendingDelta = '';
+  let lastFlushTime = Date.now();
+
+  const flushDelta = async () => {
+    if (pendingDelta) {
+      await channel.publish('message', {
+        type: 'delta',
+        messageId: assistantMessageId,
+        content: pendingDelta,
+      });
+      pendingDelta = '';
+      lastFlushTime = Date.now();
+    }
+  };
+
   for await (const textDelta of textStream) {
     fullResponse += textDelta;
+    pendingDelta += textDelta;
     
-    // Publish delta to Ably
-    await channel.publish('message', {
-      type: 'delta',
-      messageId: assistantMessageId,
-      content: textDelta,
-    });
+    // Flush if enough time has passed since last flush
+    const timeSinceLastFlush = Date.now() - lastFlushTime;
+    if (timeSinceLastFlush >= BATCH_INTERVAL_MS) {
+      await flushDelta();
+    }
   }
 
-  // Publish completion event
+  // Flush any remaining content
+  await flushDelta();
+
+  // Publish completion event (await this one to ensure delivery)
   await channel.publish('message', {
     type: 'complete',
     messageId: assistantMessageId,
