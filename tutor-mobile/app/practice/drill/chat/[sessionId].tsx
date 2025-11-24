@@ -2,17 +2,33 @@ import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'reac
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { Text, ActivityIndicator, useTheme, TextInput, IconButton, Card } from 'react-native-paper';
 import { trpc } from '@/lib/trpc';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetch } from 'expo/fetch';
 import { useAuth } from '@clerk/clerk-expo';
+import { DrillProgressBar } from '@/components/drill-progress-bar';
 
-interface ChatEvent {
+interface ChatMessageEvent {
   eventType: 'chat-message';
   id: string;
   eventData: {
     role: 'user' | 'assistant';
     content: string;
   };
+}
+
+interface PhaseCompleteEvent {
+  eventType: 'phase-complete';
+  id: string;
+  eventData: {
+    phaseId: string;
+  };
+}
+
+type ChatEvent = ChatMessageEvent | PhaseCompleteEvent;
+
+interface DrillPlan {
+  phases: Array<{ id: string; title: string }>;
+  planProgress: Record<string, { status: 'incomplete' | 'complete' }>;
 }
 
 interface Message {
@@ -31,6 +47,8 @@ export default function DrillChatScreen() {
   const [pendingMessages, setPendingMessages] = useState<Map<string, string>>(new Map());
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [completedPhaseIds, setCompletedPhaseIds] = useState<Set<string>>(new Set());
+  const [recentlyCompletedPhaseId, setRecentlyCompletedPhaseId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   
   const sessionQuery = trpc.drill.getSession.useQuery(
@@ -66,13 +84,13 @@ export default function DrillChatScreen() {
     },
   });
 
-  // Load messages from session data
+  // Load messages and drill plan progress from session data
   useEffect(() => {
     if (sessionQuery.data?.sessionData) {
       const sessionData = sessionQuery.data.sessionData as { chatEvents?: ChatEvent[] };
       if (sessionData.chatEvents) {
         const loadedMessages = sessionData.chatEvents
-          .filter((event) => event.eventType === 'chat-message')
+          .filter((event): event is ChatMessageEvent => event.eventType === 'chat-message')
           .map((event) => ({
             id: event.id,
             role: event.eventData.role,
@@ -80,6 +98,18 @@ export default function DrillChatScreen() {
           }));
         setMessages(loadedMessages);
       }
+    }
+
+    // Initialize completed phase IDs from drill plan
+    if (sessionQuery.data?.drillPlan) {
+      const drillPlan = sessionQuery.data.drillPlan as DrillPlan;
+      const completed = new Set<string>();
+      for (const [phaseId, progress] of Object.entries(drillPlan.planProgress)) {
+        if (progress.status === 'complete') {
+          completed.add(phaseId);
+        }
+      }
+      setCompletedPhaseIds(completed);
     }
   }, [sessionQuery.data]);
 
@@ -169,6 +199,11 @@ export default function DrillChatScreen() {
                     setIsStreaming(false);
                     return newMap;
                   });
+                } else if (parsed.type === 'phase-complete') {
+                  // Update completed phases and trigger animation
+                  const phaseId = parsed.phaseId as string;
+                  setCompletedPhaseIds((prev) => new Set([...prev, phaseId]));
+                  setRecentlyCompletedPhaseId(phaseId);
                 }
               } catch (error) {
                 console.error('Error parsing SSE message:', error, 'Data:', data);
@@ -219,6 +254,14 @@ export default function DrillChatScreen() {
       }, 100);
     }
   }, [messages]);
+
+  // Callback to clear the recently completed phase after animation
+  const handlePhaseAnimationComplete = useCallback(() => {
+    setRecentlyCompletedPhaseId(null);
+  }, []);
+
+  // Extract drill plan for progress bar
+  const drillPlan = sessionQuery.data?.drillPlan as DrillPlan | undefined;
 
   if (sessionQuery.isLoading) {
     return (
@@ -278,6 +321,14 @@ export default function DrillChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={100}
       >
+        {drillPlan && drillPlan.phases && (
+          <DrillProgressBar
+            phases={drillPlan.phases}
+            completedPhaseIds={completedPhaseIds}
+            recentlyCompletedPhaseId={recentlyCompletedPhaseId}
+            onAnimationComplete={handlePhaseAnimationComplete}
+          />
+        )}
         <FlatList
           ref={flatListRef}
           data={allMessages}

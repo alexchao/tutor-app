@@ -62,11 +62,16 @@ const FORMATTING_INSTRUCTIONS = `## Formatting
 
 const DRILL_PLAN_SECTION = `## Drill Plan
 
-Progress through these phases in order. When you believe the student has demonstrated sufficient understanding of a phase, use the markPhaseComplete tool to mark it complete before moving to the next phase.
+Progress through these phases in order.
 
 <drill_phases>
 {{phasesWithStatus}}
-</drill_phases>`;
+</drill_phases>
+
+### When to Mark a Phase Complete
+
+Mark a phase complete **ONLY when the student has demonstrated sufficient understanding of the phase OR you have covered it sufficiently and are ready to move on**.
+`;
 
 // Drill system prompt templates
 const drillSystemPromptBaseTemplate = `You are a helpful tutor quizzing a student about the following topic:
@@ -228,6 +233,7 @@ async function streamLLMResponseStep(
       phaseId: z.string().describe('The ID of the phase to mark as complete'),
     }),
     execute: async ({ phaseId }) => {
+      console.log('[Mark Phase Complete]', phaseId);
       // Update planProgress
       drillPlan.planProgress[phaseId] = { status: 'complete' };
 
@@ -248,6 +254,13 @@ async function streamLLMResponseStep(
           updatedAt: new Date(),
         })
         .where(eq(drillSessions.id, sessionId));
+
+      // Publish phase-complete event via Ably for real-time UI updates
+      const channel = ablyClient.channels.get(`drill:${sessionId}`);
+      await channel.publish('message', {
+        type: 'phase-complete',
+        phaseId,
+      });
 
       console.log('[Drill Plan Progress]', JSON.stringify(drillPlan.planProgress, null, 2));
 
