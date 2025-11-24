@@ -5,7 +5,7 @@ import { drillSessions, learningTopics } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { DBOS } from '@dbos-inc/dbos-sdk';
-import { processDrillMessageWorkflow } from '../domains/drill/workflows/index.js';
+import { processDrillMessageWorkflow, generateDrillPlanWorkflow } from '../domains/drill/workflows/index.js';
 
 const focusSelectionSchema = z.object({
   focusType: z.literal('custom'),
@@ -56,6 +56,13 @@ export const drillRouter = {
           message: 'Failed to create drill session',
         });
       }
+
+      // Start drill plan generation workflow in background (fire-and-forget)
+      // This will generate the plan, update status to 'ready', and trigger the first AI message
+      DBOS.startWorkflow(generateDrillPlanWorkflow)({
+        sessionId: session.id,
+        userId: ctx.userId,
+      });
 
       return { sessionId: session.id };
     }),

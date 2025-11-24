@@ -39,6 +39,8 @@ export const drillSessions = pgTable('drill_sessions', {
   userId: text('user_id').notNull(),
   focusSelection: jsonb('focus_selection'),
   sessionData: jsonb('session_data'),
+  status: text('status').default('preparing').notNull(),
+  drillPlan: jsonb('drill_plan'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
 });

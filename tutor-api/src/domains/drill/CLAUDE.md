@@ -31,11 +31,13 @@ The Drill practice mode is an interactive chat-based quiz where an AI tutor quiz
 ### Data Flow
 
 1. User creates a drill session with optional focus selection
-2. User sends a message via `drill.sendMessage` tRPC mutation
-3. Backend starts a DBOS workflow (fire-and-forget)
-4. Workflow stores user message, streams LLM response, stores assistant message
-5. LLM deltas are published to Ably channel `drill:{sessionId}`
-6. SSE endpoint subscribes to Ably and forwards events to connected client
+2. Backend starts `generateDrillPlanWorkflow` (fire-and-forget)
+3. Workflow generates drill plan using LLM, stores it, updates status to 'ready'
+4. Workflow triggers `processDrillMessageWorkflow` with no user message (AI goes first)
+5. Initial AI message streams via Ably, stored in session data
+6. User sends subsequent messages via `drill.sendMessage` tRPC mutation
+7. LLM deltas are published to Ably channel `drill:{sessionId}`
+8. SSE endpoint subscribes to Ably and forwards events to connected client
 
 ## Database Schema
 
@@ -48,6 +50,8 @@ The Drill practice mode is an interactive chat-based quiz where an AI tutor quiz
 | `userId` | text | Clerk user ID (owner) |
 | `focusSelection` | jsonb | Focus config (see below) |
 | `sessionData` | jsonb | Chat history (see below) |
+| `status` | text | Session status: `'preparing'` or `'ready'` |
+| `drillPlan` | jsonb | Generated drill plan (see below) |
 | `createdAt` | timestamp | Auto-set |
 | `updatedAt` | timestamp | Auto-updated |
 
@@ -81,13 +85,30 @@ interface ChatEvent {
 
 The `chatEvents` array is polymorphic - designed to support future event types beyond `chat-message`.
 
+### Drill Plan Schema
+
+```typescript
+interface DrillPlan {
+  phases: Array<{
+    id: string;    // kebab-case slug (e.g., "understanding-core-concepts")
+    title: string; // 3-5 word title
+  }>;
+}
+```
+
+The drill plan is generated when a session is created and contains 3-6 phases:
+- Each phase covers a distinct concept from the topic content
+- Phases progress from foundational to advanced
+- The final phase is always a culminating/application phase
+- Phases are tailored to the user's focus selection (if provided)
+
 ## tRPC Endpoints
 
 All endpoints require authentication (`protectedProcedure`).
 
 ### `drill.createSession`
 
-Creates a new drill session.
+Creates a new drill session and starts drill plan generation.
 
 **Input:**
 ```typescript
@@ -101,6 +122,12 @@ Creates a new drill session.
 ```typescript
 { sessionId: number }
 ```
+
+**Behavior:**
+- Creates session with `status: 'preparing'`
+- Starts `generateDrillPlanWorkflow` in background (fire-and-forget)
+- Returns immediately with `sessionId`
+- Client should poll `getSession` until `status === 'ready'`
 
 ### `drill.getSession`
 
@@ -160,6 +187,33 @@ Sends a user message and triggers the AI response workflow.
 - Sends heartbeat every 30 seconds
 - Cleans up Ably subscription on disconnect
 
+## Workflow: `generateDrillPlanWorkflow`
+
+**Location:** `workflows/generate-drill-plan.ts`
+
+**Input:**
+```typescript
+{
+  sessionId: number;
+  userId: string;
+}
+```
+
+### Workflow Steps
+
+1. **loadSessionAndTopic** - Load session and associated learning topic
+2. **generatePlan** - Call `generateObject` to create drill plan (with retries)
+3. **storePlanAndUpdateStatus** - Store plan in DB, set status to `'ready'`
+4. **Start conversation** - Trigger `processDrillMessageWorkflow` with `userMessage: null`
+
+### LLM Plan Generation
+
+- **Model:** `gpt-4.1-2025-04-14`
+- **Method:** Vercel AI SDK `generateObject` with Zod schema
+- **Output:** 3-6 phases with `id` (kebab-case slug) and `title` (3-5 words)
+
+---
+
 ## Workflow: `processDrillMessageWorkflow`
 
 **Location:** `workflows/process-drill-message.ts`
@@ -168,8 +222,8 @@ Sends a user message and triggers the AI response workflow.
 ```typescript
 {
   sessionId: number;
-  messageId: string;      // User message UUID
-  userMessage: string;
+  messageId: string;      // Message UUID
+  userMessage: string | null;  // null when AI goes first
   userId: string;
 }
 ```
@@ -177,7 +231,7 @@ Sends a user message and triggers the AI response workflow.
 ### Workflow Steps
 
 1. **loadSessionAndTopic** - Load session and associated learning topic
-2. **storeUserMessage** - Append user message to `sessionData.chatEvents`
+2. **storeUserMessage** - Append user message to `sessionData.chatEvents` (skipped if `userMessage` is null)
 3. **streamLLMResponse** - Stream LLM completion via Ably (with retries)
 4. **storeAssistantMessage** - Append assistant response to `sessionData.chatEvents`
 
@@ -232,6 +286,7 @@ domains/drill/
 ├── CLAUDE.md                          # This documentation
 └── workflows/
     ├── index.ts                       # Exports all drill workflows
+    ├── generate-drill-plan.ts         # Drill plan generation workflow
     └── process-drill-message.ts       # Main chat workflow
 ```
 
@@ -249,6 +304,7 @@ Related files outside this domain:
 
 ## Future Considerations
 
+- Integration of drill plan phases into chat prompts (phase-aware questioning)
 - Additional `ChatEvent` types (e.g., `system-message`, `hint-request`)
 - Session completion/scoring
 - Multiple focus areas per session

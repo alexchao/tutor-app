@@ -77,7 +77,7 @@ ${FORMATTING_INSTRUCTIONS}`;
 interface ProcessDrillMessageInput {
   sessionId: number;
   messageId: string;
-  userMessage: string;
+  userMessage: string | null; // null when AI goes first (initial message)
   userId: string;
 }
 
@@ -168,11 +168,18 @@ async function streamLLMResponseStep(
     }));
 
   // Stream LLM response
-  const { textStream } = streamText({
-    model: openai('gpt-5.1-2025-11-13'),
-    system: systemPrompt,
-    messages: messages as any,
-  });
+  // When messages is empty (AI goes first), use prompt instead
+  const { textStream } = messages.length > 0
+    ? streamText({
+        model: openai('gpt-5.1-2025-11-13'),
+        system: systemPrompt,
+        messages: messages as any,
+      })
+    : streamText({
+        model: openai('gpt-5.1-2025-11-13'),
+        system: systemPrompt,
+        prompt: 'Start the drill with a brief greeting and your first question.',
+      });
 
   const channel = ablyClient.channels.get(`drill:${sessionId}`);
   let fullResponse = '';
@@ -258,11 +265,17 @@ async function processDrillMessageWorkflowFunction(
     { name: 'loadSessionAndTopic' }
   );
 
-  // Step 2: Store user message
-  const sessionData = await DBOS.runStep(
-    () => storeUserMessageStep(sessionId, messageId, userMessage, session.sessionData),
-    { name: 'storeUserMessage' }
-  );
+  // Step 2: Store user message (skip if AI goes first)
+  let sessionData: SessionData;
+  if (userMessage !== null) {
+    sessionData = await DBOS.runStep(
+      () => storeUserMessageStep(sessionId, messageId, userMessage, session.sessionData),
+      { name: 'storeUserMessage' }
+    );
+  } else {
+    // AI goes first - use existing session data or initialize empty
+    sessionData = (session.sessionData as SessionData) ?? { chatEvents: [] };
+  }
 
   // Step 3: Stream LLM response
   const assistantMessage = await DBOS.runStep(

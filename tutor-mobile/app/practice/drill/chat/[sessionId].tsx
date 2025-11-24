@@ -33,9 +33,18 @@ export default function DrillChatScreen() {
   const [isStreaming, setIsStreaming] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   
-  const sessionQuery = trpc.drill.getSession.useQuery({
-    sessionId: sessionIdNum,
-  });
+  const sessionQuery = trpc.drill.getSession.useQuery(
+    { sessionId: sessionIdNum },
+    {
+      // Poll every 1 second while status is 'preparing'
+      refetchInterval: (query) => {
+        const status = query.state.data?.status;
+        return status === 'preparing' ? 1000 : false;
+      },
+    }
+  );
+
+  const isPreparing = sessionQuery.data?.status === 'preparing';
 
   const sendMessageMutation = trpc.drill.sendMessage.useMutation({
     onSuccess: (data, variables) => {
@@ -229,6 +238,28 @@ export default function DrillChatScreen() {
     );
   }
 
+  // Show preparing state while drill plan is being generated
+  if (isPreparing) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            title: 'Drill Session',
+            headerBackTitle: 'Back',
+            headerStyle: { backgroundColor: theme.colors.background },
+            headerTintColor: theme.colors.onBackground,
+          }}
+        />
+        <View style={[styles.container, styles.preparingContainer, { backgroundColor: theme.colors.background }]}>
+          <ActivityIndicator size="large" style={styles.preparingSpinner} />
+          <Text variant="titleMedium" style={{ color: theme.colors.onBackground }}>
+            Preparing your drill session...
+          </Text>
+        </View>
+      </>
+    );
+  }
+
   const allMessages = [...messages];
   const pendingEntries = Array.from(pendingMessages.entries());
   
@@ -338,6 +369,13 @@ export default function DrillChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  preparingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  preparingSpinner: {
+    marginBottom: 16,
   },
   messageList: {
     padding: 16,
