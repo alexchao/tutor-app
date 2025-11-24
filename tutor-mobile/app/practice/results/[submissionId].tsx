@@ -17,9 +17,10 @@ export default function ResultsScreen() {
   const submissionQuery = trpc.practice.getSubmissionResult.useQuery(
     { submissionId: Number(submissionId) },
     {
-      refetchInterval: (data) => {
+      refetchInterval: (query) => {
         // Stop polling if grading is complete or max duration reached
-        if (data?.gradingCompletedAt || pollCount * POLL_INTERVAL_MS >= MAX_POLL_DURATION_MS) {
+        const submission = query.state.data;
+        if (submission?.gradingCompletedAt || pollCount * POLL_INTERVAL_MS >= MAX_POLL_DURATION_MS) {
           return false;
         }
         return POLL_INTERVAL_MS;
@@ -169,4 +170,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
 
