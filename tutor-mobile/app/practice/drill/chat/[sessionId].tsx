@@ -98,7 +98,7 @@ export default function DrillChatScreen() {
           throw new Error(`Stream connection failed: ${response.status}`);
         }
 
-        reader = response.body?.getReader();
+        reader = response.body?.getReader() ?? null;
         const decoder = new TextDecoder();
 
         if (!reader) {

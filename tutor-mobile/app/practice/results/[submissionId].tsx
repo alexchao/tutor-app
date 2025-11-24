@@ -86,7 +86,7 @@ export default function ResultsScreen() {
                     {criterion.result === 'NOT_SATISFIED' && '✗'}
                   </Text>
                 </View>
-                <View style={styles.feedback}>
+                <View>
                   <Markdown markdown={criterion.feedbackMd} />
                 </View>
               </View>
