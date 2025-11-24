@@ -4,6 +4,8 @@ import { db } from '../db/connection.js';
 import { drillSessions, learningTopics } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
+import { DBOS } from '@dbos-inc/dbos-sdk';
+import { processDrillMessageWorkflow } from '../workflows/drill-chat.js';
 
 const focusSelectionSchema = z.object({
   focusType: z.literal('custom'),
@@ -80,6 +82,47 @@ export const drillRouter = {
       }
 
       return session;
+    }),
+
+  sendMessage: protectedProcedure
+    .input(
+      z.object({
+        sessionId: z.number(),
+        message: z.string().min(1, 'Message cannot be empty'),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Validate user owns the session
+      const [session] = await db
+        .select()
+        .from(drillSessions)
+        .where(
+          and(
+            eq(drillSessions.id, input.sessionId),
+            eq(drillSessions.userId, ctx.userId)
+          )
+        )
+        .limit(1);
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Drill session not found or you do not have access to it',
+        });
+      }
+
+      // Generate message ID
+      const messageId = crypto.randomUUID();
+
+      // Start workflow in background (don't await)
+      DBOS.startWorkflow(processDrillMessageWorkflow)({
+        sessionId: input.sessionId,
+        messageId,
+        userMessage: input.message,
+        userId: ctx.userId,
+      });
+
+      return { messageId };
     }),
 };
 

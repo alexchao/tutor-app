@@ -12,6 +12,7 @@ import fastify from "fastify";
 import { clerkPlugin } from "@clerk/fastify";
 import { createContext } from "./context.js";
 import { appRouter, type AppRouter } from "./router.js";
+import { registerDrillSSERoutes } from "./routes/drill-sse.js";
 
 async function main(): Promise<void> {
   // Initialize DBOS
@@ -43,6 +44,9 @@ async function main(): Promise<void> {
       },
     } satisfies FastifyTRPCPluginOptions<AppRouter>["trpcOptions"],
   });
+
+  // Register SSE routes
+  await registerDrillSSERoutes(server);
 
   // Start the server
   const PORT = 3000;

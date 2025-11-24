@@ -38,6 +38,7 @@ export const drillSessions = pgTable('drill_sessions', {
   learningTopicId: integer('learning_topic_id').notNull().references(() => learningTopics.id),
   userId: text('user_id').notNull(),
   focusSelection: jsonb('focus_selection'),
+  sessionData: jsonb('session_data'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
 });

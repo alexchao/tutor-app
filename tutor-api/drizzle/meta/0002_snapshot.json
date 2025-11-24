@@ -1,0 +1,232 @@
+{
+  "id": "681f52fa-391c-4035-b608-08f12bb9abe3",
+  "prevId": "8f8ca4cd-b00b-4fb9-b0e5-be64aaa4293e",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.drill_sessions": {
+      "name": "drill_sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "learning_topic_id": {
+          "name": "learning_topic_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "focus_selection": {
+          "name": "focus_selection",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "session_data": {
+          "name": "session_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "drill_sessions_learning_topic_id_learning_topics_id_fk": {
+          "name": "drill_sessions_learning_topic_id_learning_topics_id_fk",
+          "tableFrom": "drill_sessions",
+          "tableTo": "learning_topics",
+          "columnsFrom": [
+            "learning_topic_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.learning_topics": {
+      "name": "learning_topics",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_md": {
+          "name": "content_md",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.practice_question_submissions": {
+      "name": "practice_question_submissions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "learning_topic_id": {
+          "name": "learning_topic_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "question_prompt": {
+          "name": "question_prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "student_response": {
+          "name": "student_response",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grading_started_at": {
+          "name": "grading_started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "grading_completed_at": {
+          "name": "grading_completed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "grading_type": {
+          "name": "grading_type",
+          "type": "grading_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grading_result": {
+          "name": "grading_result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "practice_question_submissions_learning_topic_id_learning_topics_id_fk": {
+          "name": "practice_question_submissions_learning_topic_id_learning_topics_id_fk",
+          "tableFrom": "practice_question_submissions",
+          "tableTo": "learning_topics",
+          "columnsFrom": [
+            "learning_topic_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.grading_type": {
+      "name": "grading_type",
+      "schema": "public",
+      "values": [
+        "no-rubric-criteria"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
