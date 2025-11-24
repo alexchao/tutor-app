@@ -18,6 +18,12 @@ export const drillPlanSchema = z.object({
 
 export type DrillPlan = z.infer<typeof drillPlanSchema>;
 
+// DrillPlan with progress tracking (stored in database)
+export interface DrillPlanWithProgress {
+  phases: Array<{ id: string; title: string }>;
+  planProgress: Record<string, { status: 'incomplete' | 'complete' }>;
+}
+
 // Prompt template for generating the drill plan
 const drillPlanPromptTemplate = `You are designing a lesson plan for a tutoring drill session. The student will be quizzed about a learning topic through a series of conversational phases.
 
@@ -144,10 +150,18 @@ async function storePlanAndUpdateStatusStep(
   sessionId: number,
   drillPlan: DrillPlan
 ): Promise<void> {
+  // Initialize planProgress with all phases set to 'incomplete'
+  const planWithProgress: DrillPlanWithProgress = {
+    ...drillPlan,
+    planProgress: Object.fromEntries(
+      drillPlan.phases.map((phase) => [phase.id, { status: 'incomplete' as const }])
+    ),
+  };
+
   await db
     .update(drillSessions)
     .set({
-      drillPlan: drillPlan as unknown as Record<string, unknown>,
+      drillPlan: planWithProgress as unknown as Record<string, unknown>,
       status: 'ready',
       updatedAt: new Date(),
     })

@@ -1,20 +1,33 @@
 import { DBOS } from '@dbos-inc/dbos-sdk';
-import { streamText } from 'ai';
+import { stepCountIs, streamText, tool } from 'ai';
+import { z } from 'zod';
 import { openai } from '../../../lib/openai.js';
 import { ablyClient } from '../../../lib/ably.js';
 import { db } from '../../../db/connection.js';
 import { drillSessions, learningTopics } from '../../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { interpolatePromptVariables } from '../../../utils/interpolate-prompt-variables.js';
+import type { DrillPlanWithProgress } from './generate-drill-plan.js';
 
-interface ChatEvent {
+// Chat event types - polymorphic to support different event kinds
+type ChatMessageEvent = {
   eventType: 'chat-message';
   id: string;
   eventData: {
     role: 'user' | 'assistant';
     content: string;
   };
-}
+};
+
+type PhaseCompleteEvent = {
+  eventType: 'phase-complete';
+  id: string;
+  eventData: {
+    phaseId: string;
+  };
+};
+
+type ChatEvent = ChatMessageEvent | PhaseCompleteEvent;
 
 interface SessionData {
   chatEvents: ChatEvent[];
@@ -47,6 +60,14 @@ const FORMATTING_INSTRUCTIONS = `## Formatting
 
 - Do NOT use any markdown at all`;
 
+const DRILL_PLAN_SECTION = `## Drill Plan
+
+Progress through these phases in order. When you believe the student has demonstrated sufficient understanding of a phase, use the markPhaseComplete tool to mark it complete before moving to the next phase.
+
+<drill_phases>
+{{phasesWithStatus}}
+</drill_phases>`;
+
 // Drill system prompt templates
 const drillSystemPromptBaseTemplate = `You are a helpful tutor quizzing a student about the following topic:
 
@@ -55,6 +76,8 @@ const drillSystemPromptBaseTemplate = `You are a helpful tutor quizzing a studen
 </topic_content>
 
 ${GENERAL_GUIDELINES}
+
+{{drillPlanSection}}
 
 ${FORMATTING_INSTRUCTIONS}`;
 
@@ -71,6 +94,8 @@ ${GENERAL_GUIDELINES}
 The student wants to focus specifically on: {{focusSelectionValue}}
 
 - Only ask questions about the focus area
+
+{{drillPlanSection}}
 
 ${FORMATTING_INSTRUCTIONS}`;
 
@@ -110,6 +135,20 @@ async function loadSessionAndTopicStep(
   return { session, topic };
 }
 
+async function reloadSessionDataStep(sessionId: number): Promise<SessionData> {
+  const [session] = await db
+    .select({ sessionData: drillSessions.sessionData })
+    .from(drillSessions)
+    .where(eq(drillSessions.id, sessionId))
+    .limit(1);
+
+  if (!session) {
+    throw new Error(`Drill session ${sessionId} not found`);
+  }
+
+  return (session.sessionData as SessionData) ?? { chatEvents: [] };
+}
+
 async function storeUserMessageStep(
   sessionId: number,
   messageId: string,
@@ -144,28 +183,77 @@ async function streamLLMResponseStep(
   assistantMessageId: string,
   sessionData: SessionData,
   topicContent: string,
-  focusSelection: any
+  focusSelection: any,
+  drillPlan: DrillPlanWithProgress
 ): Promise<string> {
+  // Build drill plan phases with status
+  const phasesWithStatus = drillPlan.phases
+    .map((phase, index) => {
+      const status = drillPlan.planProgress[phase.id]?.status ?? 'incomplete';
+      return `${index + 1}. [${status}] ${phase.title} (id: ${phase.id})`;
+    })
+    .join('\n');
+
+  const drillPlanSection = interpolatePromptVariables(DRILL_PLAN_SECTION, {
+    phasesWithStatus,
+  });
+
   // Build system prompt
   let systemPrompt: string;
   if (focusSelection && focusSelection.focusType === 'custom') {
     systemPrompt = interpolatePromptVariables(drillSystemPromptFocusTemplate, {
       topicContent,
       focusSelectionValue: focusSelection.value,
+      drillPlanSection,
     });
   } else {
     systemPrompt = interpolatePromptVariables(drillSystemPromptBaseTemplate, {
       topicContent,
+      drillPlanSection,
     });
   }
 
-  // Build messages array from chat events
+  // Build messages array from chat events (only chat-message events)
   const messages = sessionData.chatEvents
-    .filter((event) => event.eventType === 'chat-message')
+    .filter((event): event is ChatMessageEvent => event.eventType === 'chat-message')
     .map((event) => ({
       role: event.eventData.role,
       content: event.eventData.content,
     }));
+
+  // Create markPhaseComplete tool with closure over session state
+  const markPhaseCompleteTool = tool({
+    description: 'Mark a drill phase as complete when the student has demonstrated understanding',
+    inputSchema: z.object({
+      phaseId: z.string().describe('The ID of the phase to mark as complete'),
+    }),
+    execute: async ({ phaseId }) => {
+      // Update planProgress
+      drillPlan.planProgress[phaseId] = { status: 'complete' };
+
+      // Add phase-complete event to chat events
+      const phaseCompleteEvent: PhaseCompleteEvent = {
+        eventType: 'phase-complete',
+        id: crypto.randomUUID(),
+        eventData: { phaseId },
+      };
+      sessionData.chatEvents.push(phaseCompleteEvent);
+
+      // Persist both drillPlan and sessionData
+      await db
+        .update(drillSessions)
+        .set({
+          drillPlan: drillPlan as unknown as Record<string, unknown>,
+          sessionData: sessionData as unknown as Record<string, unknown>,
+          updatedAt: new Date(),
+        })
+        .where(eq(drillSessions.id, sessionId));
+
+      console.log('[Drill Plan Progress]', JSON.stringify(drillPlan.planProgress, null, 2));
+
+      return { success: true, phaseId };
+    },
+  });
 
   // Stream LLM response
   // When messages is empty (AI goes first), use prompt instead
@@ -174,11 +262,15 @@ async function streamLLMResponseStep(
         model: openai('gpt-5.1-2025-11-13'),
         system: systemPrompt,
         messages: messages as any,
+        tools: { markPhaseComplete: markPhaseCompleteTool },
+        stopWhen: stepCountIs(5)
       })
     : streamText({
         model: openai('gpt-5.1-2025-11-13'),
         system: systemPrompt,
         prompt: 'Start the drill with a brief greeting and your first question.',
+        tools: { markPhaseComplete: markPhaseCompleteTool },
+        stopWhen: stepCountIs(5)
       });
 
   const channel = ablyClient.channels.get(`drill:${sessionId}`);
@@ -277,6 +369,9 @@ async function processDrillMessageWorkflowFunction(
     sessionData = (session.sessionData as SessionData) ?? { chatEvents: [] };
   }
 
+  // Get drill plan from session
+  const drillPlan = session.drillPlan as DrillPlanWithProgress;
+
   // Step 3: Stream LLM response
   const assistantMessage = await DBOS.runStep(
     () =>
@@ -285,14 +380,21 @@ async function processDrillMessageWorkflowFunction(
         assistantMessageId,
         sessionData,
         topic.contentMd,
-        session.focusSelection
+        session.focusSelection,
+        drillPlan
       ),
     { name: 'streamLLMResponse', retriesAllowed: true, intervalSeconds: 2, maxAttempts: 3 }
   );
 
-  // Step 4: Store assistant message
+  // Step 4: Reload session data to ensure we have latest state (including any phase completions from tool calls)
+  const latestSessionData = await DBOS.runStep(
+    () => reloadSessionDataStep(sessionId),
+    { name: 'reloadSessionData' }
+  );
+
+  // Step 5: Store assistant message
   await DBOS.runStep(
-    () => storeAssistantMessageStep(sessionId, assistantMessageId, assistantMessage, sessionData),
+    () => storeAssistantMessageStep(sessionId, assistantMessageId, assistantMessage, latestSessionData),
     { name: 'storeAssistantMessage' }
   );
 }

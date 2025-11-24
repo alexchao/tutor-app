@@ -73,7 +73,10 @@ interface SessionData {
   chatEvents: ChatEvent[];
 }
 
-interface ChatEvent {
+// Chat events are polymorphic
+type ChatEvent = ChatMessageEvent | PhaseCompleteEvent;
+
+interface ChatMessageEvent {
   eventType: 'chat-message';
   id: string;  // UUID
   eventData: {
@@ -81,18 +84,27 @@ interface ChatEvent {
     content: string;
   };
 }
+
+interface PhaseCompleteEvent {
+  eventType: 'phase-complete';
+  id: string;  // UUID
+  eventData: {
+    phaseId: string;  // ID of the completed phase
+  };
+}
 ```
 
-The `chatEvents` array is polymorphic - designed to support future event types beyond `chat-message`.
+The `chatEvents` array is polymorphic - supports `chat-message` for conversation and `phase-complete` when phases are marked done.
 
 ### Drill Plan Schema
 
 ```typescript
-interface DrillPlan {
+interface DrillPlanWithProgress {
   phases: Array<{
     id: string;    // kebab-case slug (e.g., "understanding-core-concepts")
     title: string; // 3-5 word title
   }>;
+  planProgress: Record<string, { status: 'incomplete' | 'complete' }>;
 }
 ```
 
@@ -101,6 +113,11 @@ The drill plan is generated when a session is created and contains 3-6 phases:
 - Phases progress from foundational to advanced
 - The final phase is always a culminating/application phase
 - Phases are tailored to the user's focus selection (if provided)
+
+The `planProgress` object tracks completion status for each phase:
+- Keys are phase IDs
+- Values contain status: `'incomplete'` (default) or `'complete'`
+- Updated when the LLM calls the `markPhaseComplete` tool
 
 ## tRPC Endpoints
 
@@ -232,14 +249,29 @@ Sends a user message and triggers the AI response workflow.
 
 1. **loadSessionAndTopic** - Load session and associated learning topic
 2. **storeUserMessage** - Append user message to `sessionData.chatEvents` (skipped if `userMessage` is null)
-3. **streamLLMResponse** - Stream LLM completion via Ably (with retries)
-4. **storeAssistantMessage** - Append assistant response to `sessionData.chatEvents`
+3. **streamLLMResponse** - Stream LLM completion via Ably (with retries); tool calls may update DB
+4. **reloadSessionData** - Reload session data from DB to get latest state (including phase completions from tool calls)
+5. **storeAssistantMessage** - Append assistant response to `sessionData.chatEvents`
 
 ### LLM Streaming
 
 - **Model:** `gpt-5.1-2025-11-13`
 - **Streaming:** Uses Vercel AI SDK `streamText`
 - **Batching:** Accumulates tokens and flushes every 50ms to stay under Ably's 50 msg/sec limit
+
+### Tool: `markPhaseComplete`
+
+The LLM has access to a tool for marking drill phases as complete:
+
+```typescript
+markPhaseComplete({ phaseId: string }) => { success: boolean; phaseId: string }
+```
+
+When called:
+1. Updates `drillPlan.planProgress[phaseId].status` to `'complete'`
+2. Adds a `phase-complete` event to `sessionData.chatEvents`
+3. Persists both changes to the database
+4. Logs the updated plan progress to console
 
 ### Ably Channel
 
@@ -279,6 +311,24 @@ Used when `focusSelection.focusType === 'custom'`:
 - **Length** - 1-2 short sentences max
 - **No markdown** - Plain text only
 
+### Drill Plan in Prompt
+
+The system prompt includes the current drill plan phases with their completion status:
+
+```
+## Drill Plan
+
+Progress through these phases in order. Use the markPhaseComplete tool when a phase is complete.
+
+<drill_phases>
+1. [incomplete] Defining Key Terms (id: defining-key-terms)
+2. [complete] Understanding Relationships (id: understanding-relationships)
+3. [incomplete] Applying to Scenarios (id: applying-to-scenarios)
+</drill_phases>
+```
+
+This guides the LLM to work through phases sequentially and mark them complete.
+
 ## File Structure
 
 ```
@@ -304,7 +354,7 @@ Related files outside this domain:
 
 ## Future Considerations
 
-- Integration of drill plan phases into chat prompts (phase-aware questioning)
+- UI for displaying drill plan progress to users
 - Additional `ChatEvent` types (e.g., `system-message`, `hint-request`)
 - Session completion/scoring
 - Multiple focus areas per session
