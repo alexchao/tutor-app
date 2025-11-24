@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { router, Stack } from 'expo-router';
+import { TextInput, Button, Text, useTheme } from 'react-native-paper';
 import { trpc } from '@/lib/trpc';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
 
 export default function CreateTopicScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const theme = useTheme();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   
@@ -36,52 +34,48 @@ export default function CreateTopicScreen() {
         options={{ 
           title: 'Create Topic', 
           headerBackTitle: 'Back',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: theme.colors.background },
+          headerTintColor: theme.colors.onBackground,
         }} 
       />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
         <ScrollView 
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={[styles.label, { color: colors.text }]}>Title</Text>
           <TextInput
-            style={[styles.titleInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.tabIconDefault }]}
+            label="Title"
             value={title}
             onChangeText={setTitle}
             placeholder="Enter topic title"
-            placeholderTextColor={colors.tabIconDefault}
+            mode="outlined"
+            style={styles.titleInput}
           />
 
-          <Text style={[styles.label, { color: colors.text }]}>Content</Text>
           <TextInput
-            style={[styles.contentInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.tabIconDefault }]}
+            label="Content"
             value={content}
             onChangeText={setContent}
             placeholder="Enter content in Markdown format"
-            placeholderTextColor={colors.tabIconDefault}
+            mode="outlined"
             multiline
-            textAlignVertical="top"
+            numberOfLines={10}
+            style={styles.contentInput}
           />
 
-          <TouchableOpacity
-            style={[
-              styles.submitButton, 
-              { backgroundColor: colors.tint },
-              (createMutation.isPending || !title.trim() || !content.trim()) && styles.submitButtonDisabled
-            ]}
+          <Button
+            mode="contained"
             onPress={handleSubmit}
             disabled={createMutation.isPending || !title.trim() || !content.trim()}
+            loading={createMutation.isPending}
+            style={styles.submitButton}
           >
-            <Text style={styles.submitButtonText}>
-              {createMutation.isPending ? 'Creating...' : 'Create Topic'}
-            </Text>
-          </TouchableOpacity>
+            {createMutation.isPending ? 'Creating...' : 'Create Topic'}
+          </Button>
         </ScrollView>
       </KeyboardAvoidingView>
     </>
@@ -98,39 +92,14 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
   },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
+  titleInput: {
     marginTop: 16,
   },
-  titleInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 44,
-  },
   contentInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 200,
+    marginTop: 16,
   },
   submitButton: {
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: 'center',
     marginTop: 24,
-  },
-  submitButtonDisabled: {
-    opacity: 0.5,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 

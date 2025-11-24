@@ -1,11 +1,13 @@
 import { useSignIn } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
-import { Text, TextInput, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { TextInput, Button, Text, useTheme } from 'react-native-paper';
 import React from 'react';
 
 export default function SignInPage() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
+  const theme = useTheme();
 
   const [emailAddress, setEmailAddress] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -90,53 +92,56 @@ export default function SignInPage() {
 
   if (pendingSecondFactor) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Verify your email</Text>
-        <Text style={styles.subtitle}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Text variant="headlineMedium" style={styles.title}>Verify your email</Text>
+        <Text variant="bodyMedium" style={styles.subtitle}>
           We sent a verification code to {emailAddress}
         </Text>
         
         {error ? <Text style={styles.error}>{error}</Text> : null}
         
         <TextInput
-          style={styles.input}
+          mode="outlined"
           value={code}
           placeholder="Enter verification code"
           onChangeText={(c) => setCode(c)}
+          style={styles.input}
         />
         
-        <TouchableOpacity style={styles.button} onPress={onVerifyPress}>
-          <Text style={styles.buttonText}>Verify</Text>
-        </TouchableOpacity>
+        <Button mode="contained" onPress={onVerifyPress} style={styles.button}>
+          Verify
+        </Button>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign In</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text variant="headlineMedium" style={styles.title}>Sign In</Text>
       
       {error ? <Text style={styles.error}>{error}</Text> : null}
       
       <TextInput
-        style={styles.input}
+        mode="outlined"
         autoCapitalize="none"
         value={emailAddress}
         placeholder="Enter email"
         onChangeText={(email) => setEmailAddress(email)}
+        style={styles.input}
       />
       
       <TextInput
-        style={styles.input}
+        mode="outlined"
         value={password}
         placeholder="Enter password"
         secureTextEntry={true}
         onChangeText={(pwd) => setPassword(pwd)}
+        style={styles.input}
       />
       
-      <TouchableOpacity style={styles.button} onPress={onSignInPress}>
-        <Text style={styles.buttonText}>Sign In</Text>
-      </TouchableOpacity>
+      <Button mode="contained" onPress={onSignInPress} style={styles.button}>
+        Sign In
+      </Button>
       
       <View style={styles.linkContainer}>
         <Text>Don't have an account? </Text>
@@ -155,36 +160,18 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
     marginBottom: 20,
     textAlign: 'center',
-    color: '#666',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    padding: 10,
     marginBottom: 10,
-    fontSize: 16,
   },
   button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 5,
     marginTop: 10,
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   linkContainer: {
     flexDirection: 'row',
@@ -192,7 +179,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   link: {
-    color: '#007AFF',
     fontWeight: 'bold',
   },
   error: {

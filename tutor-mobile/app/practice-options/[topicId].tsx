@@ -1,12 +1,10 @@
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Text, ActivityIndicator, Card, useTheme } from 'react-native-paper';
 import { trpc } from '@/lib/trpc';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
 
 export default function PracticeOptionsScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const theme = useTheme();
   const router = useRouter();
   const { topicId } = useLocalSearchParams<{ topicId: string }>();
   
@@ -15,16 +13,16 @@ export default function PracticeOptionsScreen() {
 
   if (topicQuery.isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.tint} />
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" />
       </View>
     );
   }
 
   if (!topic) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.text }}>Topic not found</Text>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Text>Topic not found</Text>
       </View>
     );
   }
@@ -35,21 +33,24 @@ export default function PracticeOptionsScreen() {
         options={{
           title: topic.title,
           headerBackTitle: 'Back',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: theme.colors.background },
+          headerTintColor: theme.colors.onBackground,
         }}
       />
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.heading, { color: colors.text }]}>Choose Practice Type</Text>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Text variant="headlineSmall" style={styles.heading}>Choose Practice Type</Text>
         
         <TouchableOpacity
-          style={[styles.optionCard, { backgroundColor: colors.background, borderColor: colors.tabIconDefault }]}
           onPress={() => router.push(`/practice/brain-dump/${topicId}`)}
         >
-          <Text style={[styles.optionTitle, { color: colors.text }]}>Brain Dump</Text>
-          <Text style={[styles.optionDescription, { color: colors.tabIconDefault }]}>
-            Write everything you know about this topic
-          </Text>
+          <Card style={styles.optionCard}>
+            <Card.Content>
+              <Text variant="titleLarge" style={styles.optionTitle}>Brain Dump</Text>
+              <Text variant="bodyMedium" style={styles.optionDescription}>
+                Write everything you know about this topic
+              </Text>
+            </Card.Content>
+          </Card>
         </TouchableOpacity>
       </View>
     </>
@@ -62,24 +63,16 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   heading: {
-    fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 24,
   },
   optionCard: {
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
     marginBottom: 16,
   },
   optionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
     marginBottom: 8,
   },
   optionDescription: {
-    fontSize: 16,
-    lineHeight: 22,
+    marginTop: 4,
   },
 });
 

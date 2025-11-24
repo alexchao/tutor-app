@@ -1,13 +1,11 @@
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import { Text, ActivityIndicator, useTheme } from 'react-native-paper';
 import { trpc } from '@/lib/trpc';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
 import { Markdown } from 'react-native-remark';
 
 export default function ReadTopicScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const theme = useTheme();
   const { topicId } = useLocalSearchParams<{ topicId: string }>();
   
   const topicQuery = trpc.learningTopics.list.useQuery();
@@ -15,17 +13,17 @@ export default function ReadTopicScreen() {
 
   if (topicQuery.isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.tint} />
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" />
       </View>
     );
   }
 
   if (!topic) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.text }]}>Topic not found</Text>
+          <Text>Topic not found</Text>
         </View>
       </View>
     );
@@ -37,12 +35,12 @@ export default function ReadTopicScreen() {
         options={{
           title: topic.title,
           headerBackTitle: 'Back',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: theme.colors.background },
+          headerTintColor: theme.colors.onBackground,
         }}
       />
       <ScrollView 
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.content}>
@@ -68,10 +66,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
   },
 });
 

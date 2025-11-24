@@ -6,6 +6,7 @@ import { ClerkProvider } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
+import { PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { trpc, useTRPCClient } from '@/lib/trpc';
@@ -16,20 +17,23 @@ export const unstable_settings = {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const paperTheme = colorScheme === 'dark' ? MD3DarkTheme : MD3LightTheme;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        <Stack.Screen name="create-topic" options={{ presentation: 'card', title: 'Create Topic' }} />
-        <Stack.Screen name="practice-options/[topicId]" options={{ presentation: 'card' }} />
-        <Stack.Screen name="practice/brain-dump/[topicId]" options={{ presentation: 'card' }} />
-        <Stack.Screen name="practice/results/[submissionId]" options={{ presentation: 'card' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <PaperProvider theme={paperTheme}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen name="create-topic" options={{ presentation: 'card', title: 'Create Topic' }} />
+          <Stack.Screen name="practice-options/[topicId]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="practice/brain-dump/[topicId]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="practice/results/[submissionId]" options={{ presentation: 'card' }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </PaperProvider>
   );
 }
 

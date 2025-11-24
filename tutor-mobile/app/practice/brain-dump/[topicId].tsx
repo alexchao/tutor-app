@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { TextInput, Button, Text, ActivityIndicator, Card, useTheme } from 'react-native-paper';
 import { trpc } from '@/lib/trpc';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
 
 export default function BrainDumpScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const theme = useTheme();
   const router = useRouter();
   const { topicId } = useLocalSearchParams<{ topicId: string }>();
   const [response, setResponse] = useState('');
@@ -36,16 +34,16 @@ export default function BrainDumpScreen() {
 
   if (topicQuery.isLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.tint} />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" />
       </View>
     );
   }
 
   if (!topic) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.text }}>Topic not found</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <Text>Topic not found</Text>
       </View>
     );
   }
@@ -56,48 +54,46 @@ export default function BrainDumpScreen() {
         options={{
           title: topic.title,
           headerBackTitle: 'Back',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: theme.colors.background },
+          headerTintColor: theme.colors.onBackground,
         }}
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
       >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={[styles.questionCard, { backgroundColor: colors.background, borderColor: colors.tabIconDefault }]}>
-            <Text style={[styles.question, { color: colors.text }]}>
-              Explain as much as you can about this topic.
-            </Text>
-          </View>
+          <Card style={styles.questionCard}>
+            <Card.Content>
+              <Text variant="titleMedium">
+                Explain as much as you can about this topic.
+              </Text>
+            </Card.Content>
+          </Card>
 
           <TextInput
-            style={[styles.textarea, { backgroundColor: colors.background, color: colors.text, borderColor: colors.tabIconDefault }]}
+            mode="outlined"
             value={response}
             onChangeText={setResponse}
             placeholder="Type your response here..."
-            placeholderTextColor={colors.tabIconDefault}
             multiline
-            textAlignVertical="top"
+            numberOfLines={12}
+            style={styles.textarea}
           />
 
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              { backgroundColor: colors.tint },
-              (!response.trim() || submitMutation.isPending) && styles.submitButtonDisabled
-            ]}
+          <Button
+            mode="contained"
             onPress={handleSubmit}
             disabled={!response.trim() || submitMutation.isPending}
+            loading={submitMutation.isPending}
+            style={styles.submitButton}
           >
-            <Text style={styles.submitButtonText}>
-              {submitMutation.isPending ? 'Submitting...' : 'Submit'}
-            </Text>
-          </TouchableOpacity>
+            {submitMutation.isPending ? 'Submitting...' : 'Submit'}
+          </Button>
         </ScrollView>
       </KeyboardAvoidingView>
     </>
@@ -120,37 +116,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   questionCard: {
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
     marginBottom: 24,
   },
-  question: {
-    fontSize: 18,
-    fontWeight: '600',
-    lineHeight: 26,
-  },
   textarea: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    minHeight: 300,
-    lineHeight: 24,
+    marginBottom: 16,
   },
   submitButton: {
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  submitButtonDisabled: {
-    opacity: 0.5,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    marginTop: 8,
   },
 });
 

@@ -1,11 +1,13 @@
 import * as React from 'react';
-import { Text, TextInput, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { TextInput, Button, Text, useTheme } from 'react-native-paper';
 import { useSignUp } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
 
 export default function SignUpScreen() {
   const { isLoaded, signUp, setActive } = useSignUp();
   const router = useRouter();
+  const theme = useTheme();
 
   const [emailAddress, setEmailAddress] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -77,50 +79,53 @@ export default function SignUpScreen() {
 
   if (pendingVerification) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Verify your email</Text>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Text variant="headlineMedium" style={styles.title}>Verify your email</Text>
         
         {error ? <Text style={styles.error}>{error}</Text> : null}
         
         <TextInput
-          style={styles.input}
+          mode="outlined"
           value={code}
           placeholder="Enter your verification code"
           onChangeText={(c) => setCode(c)}
+          style={styles.input}
         />
         
-        <TouchableOpacity style={styles.button} onPress={onVerifyPress}>
-          <Text style={styles.buttonText}>Verify</Text>
-        </TouchableOpacity>
+        <Button mode="contained" onPress={onVerifyPress} style={styles.button}>
+          Verify
+        </Button>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign Up</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text variant="headlineMedium" style={styles.title}>Sign Up</Text>
       
       {error ? <Text style={styles.error}>{error}</Text> : null}
       
       <TextInput
-        style={styles.input}
+        mode="outlined"
         autoCapitalize="none"
         value={emailAddress}
         placeholder="Enter email"
         onChangeText={(email) => setEmailAddress(email)}
+        style={styles.input}
       />
       
       <TextInput
-        style={styles.input}
+        mode="outlined"
         value={password}
         placeholder="Enter password"
         secureTextEntry={true}
         onChangeText={(pwd) => setPassword(pwd)}
+        style={styles.input}
       />
       
-      <TouchableOpacity style={styles.button} onPress={onSignUpPress}>
-        <Text style={styles.buttonText}>Continue</Text>
-      </TouchableOpacity>
+      <Button mode="contained" onPress={onSignUpPress} style={styles.button}>
+        Continue
+      </Button>
       
       <View style={styles.linkContainer}>
         <Text>Already have an account? </Text>
@@ -139,30 +144,14 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    padding: 10,
     marginBottom: 10,
-    fontSize: 16,
   },
   button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 5,
     marginTop: 10,
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   linkContainer: {
     flexDirection: 'row',
@@ -170,7 +159,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   link: {
-    color: '#007AFF',
     fontWeight: 'bold',
   },
   error: {

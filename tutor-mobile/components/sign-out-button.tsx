@@ -1,6 +1,6 @@
 import { useClerk } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
-import { Button } from 'react-native';
+import { Button } from 'react-native-paper';
 
 export function SignOutButton() {
   const { signOut } = useClerk();
@@ -15,6 +15,6 @@ export function SignOutButton() {
     }
   };
   
-  return <Button title="Sign Out" onPress={handleSignOut} />;
+  return <Button mode="contained" onPress={handleSignOut}>Sign Out</Button>;
 }
 
