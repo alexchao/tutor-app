@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { trpc } from '@/lib/trpc';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
+import { Markdown } from 'react-native-remark';
 
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_DURATION_MS = 60000;
@@ -85,9 +86,9 @@ export default function ResultsScreen() {
                     {criterion.result === 'NOT_SATISFIED' && '✗'}
                   </Text>
                 </View>
-                <Text style={[styles.feedback, { color: colors.text }]}>
-                  {criterion.feedbackMd}
-                </Text>
+                <View style={styles.feedback}>
+                  <Markdown markdown={criterion.feedbackMd} />
+                </View>
               </View>
             ))}
           </View>

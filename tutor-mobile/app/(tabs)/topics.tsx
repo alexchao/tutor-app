@@ -47,19 +47,24 @@ export default function TopicsScreen() {
           renderItem={({ item }) => (
             <View style={[styles.topicCard, { backgroundColor: colors.background, borderColor: colors.tabIconDefault }]}>
               <Text style={[styles.topicTitle, { color: colors.text }]}>{item.title}</Text>
-              <Text style={[styles.topicContent, { color: colors.text }]} numberOfLines={3}>
-                {item.contentMd}
-              </Text>
               <View style={styles.topicFooter}>
                 <Text style={[styles.topicDate, { color: colors.tabIconDefault }]}>
                   {new Date(item.createdAt).toLocaleDateString()}
                 </Text>
-                <TouchableOpacity
-                  style={[styles.practiceButton, { backgroundColor: colors.tint }]}
-                  onPress={() => router.push(`/practice-options/${item.id}`)}
-                >
-                  <Text style={styles.practiceButtonText}>Practice</Text>
-                </TouchableOpacity>
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={[styles.readButton, { backgroundColor: colors.tabIconDefault }]}
+                    onPress={() => router.push(`/topic/${item.id}`)}
+                  >
+                    <Text style={[styles.readButtonText, { color: colors.background }]}>Read</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.practiceButton, { backgroundColor: colors.tint }]}
+                    onPress={() => router.push(`/practice-options/${item.id}`)}
+                  >
+                    <Text style={styles.practiceButtonText}>Practice</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           )}
@@ -138,11 +143,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
-  topicContent: {
-    fontSize: 16,
-    lineHeight: 22,
-    marginBottom: 12,
-  },
   topicDate: {
     fontSize: 12,
   },
@@ -151,6 +151,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 4,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  readButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  readButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   practiceButton: {
     paddingHorizontal: 16,
