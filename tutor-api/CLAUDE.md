@@ -43,12 +43,34 @@ Uses **Clerk** for secure user authentication:
 ```
 tutor-api/
 ├── src/
-│   ├── server.ts       # Main entry point, Fastify + DBOS initialization
-│   ├── router.ts       # tRPC router with all API procedures
-│   ├── context.ts      # tRPC context (request/response handling)
-│   └── workflows.ts    # DBOS durable workflows
-├── dist/               # Compiled JavaScript (gitignored)
-├── docker-compose.yml  # PostgreSQL for local development
+│   ├── server.ts              # Main entry point, Fastify + DBOS initialization
+│   ├── router.ts               # tRPC router with all API procedures
+│   ├── context.ts              # tRPC context (request/response handling)
+│   ├── workflows.ts            # Example DBOS workflow (greeting)
+│   ├── routers/                # tRPC routers organized by feature
+│   │   ├── drill.ts
+│   │   ├── practice.ts
+│   │   └── learning-topics.ts
+│   ├── routes/                 # Non-tRPC routes (SSE, etc.)
+│   │   └── drill-sse.ts
+│   ├── domains/                # Domain-specific business logic
+│   │   ├── drill/
+│   │   │   └── workflows/      # Drill domain workflows
+│   │   │       ├── process-drill-message.ts
+│   │   │       └── index.ts   # Exports all drill workflows
+│   │   └── brain-dump/
+│   │       └── workflows/      # Brain dump domain workflows
+│   │           ├── grade-submission.ts
+│   │           └── index.ts    # Exports all brain-dump workflows
+│   ├── db/                     # Database schema and connection
+│   │   ├── schema.ts
+│   │   └── connection.ts
+│   └── lib/                    # Shared utilities
+│       ├── openai.ts
+│       └── ably.ts
+├── dist/                       # Compiled JavaScript (gitignored)
+├── drizzle/                    # Database migrations
+├── docker-compose.yml          # PostgreSQL for local development
 ├── package.json
 └── tsconfig.json
 ```
@@ -172,7 +194,53 @@ curl "http://localhost:3000/trpc/user.welcome" \
 
 ## Workflows
 
-### Greeting Workflow
+### Workflow Organization
+
+Workflows are organized by domain in `src/domains/{domain}/workflows/`:
+
+- **Each workflow gets its own file** with a descriptive kebab-case name (e.g., `process-drill-message.ts`)
+- **Each workflows folder has an `index.ts`** that exports all workflows from that domain
+- **Workflows are imported** from the domain's workflows folder (e.g., `from '../domains/drill/workflows/index.js'`)
+
+**Example structure:**
+```
+domains/
+└── drill/
+    └── workflows/
+        ├── process-drill-message.ts  # Individual workflow file
+        └── index.ts                  # Exports: processDrillMessageWorkflow
+```
+
+### Creating New Workflows
+
+When adding a new workflow:
+
+1. **Create the workflow file** in the appropriate domain's `workflows/` folder:
+   ```typescript
+   // domains/{domain}/workflows/my-new-workflow.ts
+   import { DBOS } from '@dbos-inc/dbos-sdk';
+   
+   async function myNewWorkflowFunction(input: MyInput): Promise<void> {
+     // Workflow implementation
+   }
+   
+   export const myNewWorkflow = DBOS.registerWorkflow(myNewWorkflowFunction);
+   ```
+
+2. **Export it from `index.ts`**:
+   ```typescript
+   // domains/{domain}/workflows/index.ts
+   export { myNewWorkflow } from './my-new-workflow.js';
+   ```
+
+3. **Import in routers** using the `.js` extension:
+   ```typescript
+   import { myNewWorkflow } from '../domains/{domain}/workflows/index.js';
+   ```
+
+### Example Workflows
+
+#### Greeting Workflow
 
 Located in `src/workflows.ts`. This is a simple example workflow with two steps:
 
@@ -183,6 +251,14 @@ The workflow demonstrates DBOS's durable execution:
 - Each step is automatically recorded
 - If the server crashes between steps, it resumes from the last completed step
 - All workflow executions have unique IDs for tracking
+
+#### Process Drill Message Workflow
+
+Located in `domains/drill/workflows/process-drill-message.ts`. Handles drill session chat messages with LLM streaming.
+
+#### Grade Submission Workflow
+
+Located in `domains/brain-dump/workflows/grade-submission.ts`. Grades student submissions using LLM with structured criteria evaluation.
 
 ## Development Notes
 
@@ -211,11 +287,15 @@ The project uses:
 
 When creating DBOS workflows:
 
-1. **Use `DBOS.runStep()`** for non-deterministic operations (API calls, random numbers, current time)
-2. **Keep workflows deterministic** - same inputs should produce same step sequence
-3. **Don't use `Promise.all()`** - use `Promise.allSettled()` for parallel steps
-4. **No side effects outside workflow scope** - don't modify global variables
-5. **All inputs/outputs must be JSON-serializable**
+1. **File organization**: Place each workflow in its own file within the appropriate domain's `workflows/` folder
+2. **Naming**: Use kebab-case for workflow files (e.g., `process-drill-message.ts`)
+3. **Exports**: Always export workflows from the domain's `workflows/index.ts` file
+4. **Use `DBOS.runStep()`** for non-deterministic operations (API calls, random numbers, current time)
+5. **Keep workflows deterministic** - same inputs should produce same step sequence
+6. **Don't use `Promise.all()`** - use `Promise.allSettled()` for parallel steps
+7. **No side effects outside workflow scope** - don't modify global variables
+8. **All inputs/outputs must be JSON-serializable**
+9. **Import paths**: Always use `.js` extensions in imports (TypeScript + ESM requirement)
 
 ## Production Deployment
 
