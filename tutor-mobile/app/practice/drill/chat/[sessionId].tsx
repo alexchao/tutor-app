@@ -1,5 +1,5 @@
 import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, ActivityIndicator, useTheme, TextInput, IconButton, Card } from 'react-native-paper';
 import { trpc } from '@/lib/trpc';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -39,6 +39,7 @@ interface Message {
 
 export default function DrillChatScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const sessionIdNum = parseInt(sessionId);
   const { getToken } = useAuth();
@@ -81,6 +82,15 @@ export default function DrillChatScreen() {
     },
     onError: (error) => {
       console.error('[DrillChat] Error sending message:', error);
+    },
+  });
+
+  const finishSessionMutation = trpc.drill.finishSession.useMutation({
+    onSuccess: () => {
+      router.replace(`/practice/drill/results/${sessionId}`);
+    },
+    onError: (error) => {
+      console.error('[DrillChat] Error finishing session:', error);
     },
   });
 
@@ -260,8 +270,18 @@ export default function DrillChatScreen() {
     setRecentlyCompletedPhaseId(null);
   }, []);
 
+  // Handle finish button press
+  const handleFinishPress = useCallback(() => {
+    finishSessionMutation.mutate({ sessionId: sessionIdNum });
+  }, [finishSessionMutation, sessionIdNum]);
+
   // Extract drill plan for progress bar
   const drillPlan = sessionQuery.data?.drillPlan as DrillPlan | undefined;
+
+  // Check if all phases are complete
+  const allPhasesComplete = drillPlan?.phases
+    ? drillPlan.phases.length > 0 && completedPhaseIds.size === drillPlan.phases.length
+    : false;
 
   if (sessionQuery.isLoading) {
     return (
@@ -327,6 +347,8 @@ export default function DrillChatScreen() {
             completedPhaseIds={completedPhaseIds}
             recentlyCompletedPhaseId={recentlyCompletedPhaseId}
             onAnimationComplete={handlePhaseAnimationComplete}
+            allPhasesComplete={allPhasesComplete}
+            onFinishPress={handleFinishPress}
           />
         )}
         <FlatList

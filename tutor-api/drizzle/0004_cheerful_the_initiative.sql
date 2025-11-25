@@ -1,0 +1,1 @@
+ALTER TABLE "drill_sessions" ADD COLUMN "chat_completed_at" timestamp;

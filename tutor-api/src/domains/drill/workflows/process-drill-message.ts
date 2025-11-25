@@ -1,7 +1,7 @@
 import { DBOS } from '@dbos-inc/dbos-sdk';
 import { stepCountIs, streamText, tool } from 'ai';
 import { z } from 'zod';
-import { openai } from '../../../lib/openai.js';
+import { anthropic } from '../../../lib/anthropic.js';
 import { ablyClient } from '../../../lib/ably.js';
 import { db } from '../../../db/connection.js';
 import { drillSessions, learningTopics } from '../../../db/schema.js';
@@ -293,27 +293,17 @@ async function streamLLMResponseStep(
   // When messages is empty (AI goes first), use prompt instead
   const { textStream } = messages.length > 0
     ? streamText({
-        model: openai('gpt-5.1-2025-11-13'),
+        model: anthropic('claude-sonnet-4-5-20250929'),
         system: systemPrompt,
         messages: messages as any,
         tools: { markPhaseComplete: markPhaseCompleteTool },
-        providerOptions: {
-          openai: {
-            reasoningEffort: 'low',
-          },
-        },
         stopWhen: stepCountIs(2)
       })
     : streamText({
-        model: openai('gpt-5.1-2025-11-13'),
+        model: anthropic('claude-sonnet-4-5-20250929'),
         system: systemPrompt,
         prompt: 'Start the drill with a brief greeting and your first question.',
         tools: { markPhaseComplete: markPhaseCompleteTool },
-        providerOptions: {
-          openai: {
-            reasoningEffort: 'low',
-          },
-        },
         stopWhen: stepCountIs(2)
       });
 

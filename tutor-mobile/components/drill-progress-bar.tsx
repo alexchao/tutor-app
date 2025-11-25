@@ -1,5 +1,5 @@
 import { View, StyleSheet, Animated } from 'react-native';
-import { Text, useTheme } from 'react-native-paper';
+import { Text, Button, useTheme } from 'react-native-paper';
 import { useEffect, useRef } from 'react';
 
 interface Phase {
@@ -12,6 +12,8 @@ interface DrillProgressBarProps {
   completedPhaseIds: Set<string>;
   recentlyCompletedPhaseId: string | null;
   onAnimationComplete?: () => void;
+  allPhasesComplete?: boolean;
+  onFinishPress?: () => void;
 }
 
 export function DrillProgressBar({
@@ -19,6 +21,8 @@ export function DrillProgressBar({
   completedPhaseIds,
   recentlyCompletedPhaseId,
   onAnimationComplete,
+  allPhasesComplete,
+  onFinishPress,
 }: DrillProgressBarProps) {
   const theme = useTheme();
 
@@ -70,6 +74,17 @@ export function DrillProgressBar({
           onAnimationComplete={onAnimationComplete}
           theme={theme}
         />
+      )}
+
+      {/* Finish button when all phases are complete */}
+      {allPhasesComplete && onFinishPress && (
+        <Button
+          mode="contained"
+          onPress={onFinishPress}
+          style={styles.finishButton}
+        >
+          Finish
+        </Button>
       )}
     </View>
   );
@@ -305,6 +320,10 @@ const styles = StyleSheet.create({
   completionText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  finishButton: {
+    marginTop: 12,
+    alignSelf: 'center',
   },
 });
 

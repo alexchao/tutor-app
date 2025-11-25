@@ -131,5 +131,39 @@ export const drillRouter = {
 
       return { messageId };
     }),
+
+  finishSession: protectedProcedure
+    .input(z.object({ sessionId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      // Validate user owns the session
+      const [session] = await db
+        .select()
+        .from(drillSessions)
+        .where(
+          and(
+            eq(drillSessions.id, input.sessionId),
+            eq(drillSessions.userId, ctx.userId)
+          )
+        )
+        .limit(1);
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Drill session not found or you do not have access to it',
+        });
+      }
+
+      // Update status to 'chat-completed' and set chatCompletedAt
+      await db
+        .update(drillSessions)
+        .set({
+          status: 'chat-completed',
+          chatCompletedAt: new Date(),
+        })
+        .where(eq(drillSessions.id, input.sessionId));
+
+      return { success: true };
+    }),
 };
 

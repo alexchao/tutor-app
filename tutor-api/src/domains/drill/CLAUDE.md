@@ -17,6 +17,7 @@ The Drill practice mode is an interactive chat-based quiz where an AI tutor quiz
 │  - Focus UI     │               │  - createSession│               │  - Store msg    │
 │  - Chat UI      │               │  - getSession   │               │  - Stream LLM   │
 │                 │               │  - sendMessage  │               │  - Store reply  │
+│                 │               │  - finishSession│               │                 │
 └────────┬────────┘               └─────────────────┘               └────────┬────────┘
          │                                                                   │
          │ SSE                                                         Ably  │
@@ -38,6 +39,9 @@ The Drill practice mode is an interactive chat-based quiz where an AI tutor quiz
 6. User sends subsequent messages via `drill.sendMessage` tRPC mutation
 7. LLM deltas are published to Ably channel `drill:{sessionId}`
 8. SSE endpoint subscribes to Ably and forwards events to connected client
+9. When all phases complete, user taps "Finish" button
+10. Client calls `drill.finishSession`, status updates to 'chat-completed'
+11. Client navigates to drill results page
 
 ## Database Schema
 
@@ -50,8 +54,9 @@ The Drill practice mode is an interactive chat-based quiz where an AI tutor quiz
 | `userId` | text | Clerk user ID (owner) |
 | `focusSelection` | jsonb | Focus config (see below) |
 | `sessionData` | jsonb | Chat history (see below) |
-| `status` | text | Session status: `'preparing'` or `'ready'` |
+| `status` | text | Session status: `'preparing'`, `'ready'`, or `'chat-completed'` |
 | `drillPlan` | jsonb | Generated drill plan (see below) |
+| `chatCompletedAt` | timestamp | When user finished the drill chat (null until completed) |
 | `createdAt` | timestamp | Auto-set |
 | `updatedAt` | timestamp | Auto-updated |
 
@@ -179,6 +184,26 @@ Sends a user message and triggers the AI response workflow.
 - Generates UUID for the user message
 - Starts `processDrillMessageWorkflow` in background (fire-and-forget)
 - Returns immediately with `messageId`
+
+### `drill.finishSession`
+
+Marks a drill session as completed when the user finishes all phases.
+
+**Input:**
+```typescript
+{ sessionId: number }
+```
+
+**Output:**
+```typescript
+{ success: boolean }
+```
+
+**Behavior:**
+- Validates user owns the session
+- Updates status to `'chat-completed'`
+- Sets `chatCompletedAt` to current timestamp
+- Client navigates to drill results page after success
 
 ## SSE Endpoint
 
