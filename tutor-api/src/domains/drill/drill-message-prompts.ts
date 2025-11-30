@@ -56,6 +56,8 @@ const drillSystemPromptBaseTemplate = `You are a helpful tutor quizzing a studen
 
 ${GENERAL_GUIDELINES}
 
+{{turnInfoSection}}
+
 {{drillPlanSection}}
 
 ${FORMATTING_INSTRUCTIONS}`;
@@ -74,6 +76,8 @@ The student wants to focus specifically on: {{focusSelectionValue}}
 
 - Only ask questions about the focus area
 
+{{turnInfoSection}}
+
 {{drillPlanSection}}
 
 ${FORMATTING_INSTRUCTIONS}`;
@@ -82,10 +86,12 @@ interface BuildSystemPromptParams {
   topicContent: string;
   focusSelection: { focusType: 'custom'; value: string } | null | undefined;
   drillPlan: DrillPlanWithProgress;
+  numTurns: number;
+  targetNumTurns: number;
 }
 
 export function buildDrillSystemPrompt(params: BuildSystemPromptParams): string {
-  const { topicContent, focusSelection, drillPlan } = params;
+  const { topicContent, focusSelection, drillPlan, numTurns, targetNumTurns } = params;
 
   // Build drill plan phases with status
   // Find the current phase (earliest incomplete one)
@@ -102,6 +108,30 @@ export function buildDrillSystemPrompt(params: BuildSystemPromptParams): string 
     })
     .join('\n');
 
+  // Build turn information and progress guidance
+  let turnInfoSection = '';
+  if (numTurns < targetNumTurns) {
+    const progress = numTurns / targetNumTurns;
+    // Map progress to expected phase index (capped at last phase)
+    const expectedPhaseIndex = Math.min(
+      Math.floor(progress * drillPlan.phases.length),
+      drillPlan.phases.length - 1
+    );
+    const expectedPhase = drillPlan.phases[expectedPhaseIndex];
+    
+    turnInfoSection = `## Turn Progress
+
+You are on turn ${numTurns} of ${targetNumTurns} target turns.
+
+Based on your progress (${Math.round(progress * 100)}%), you should be working on the "${expectedPhase.title}" phase (phase ${expectedPhaseIndex + 1} of ${drillPlan.phases.length}).`;
+  } else {
+    turnInfoSection = `## Turn Progress
+
+You are on turn ${numTurns} of ${targetNumTurns} target turns.
+
+⚠️ You have exceeded the target number of turns. Move on and wrap up quickly.`;
+  }
+
   // Build instruction for current phase
   const currentPhaseInstruction = currentPhase
     ? `Focus on the "${currentPhase.title}" phase. Mark it complete when the user has demonstrated understanding or you have provided explanations.`
@@ -117,11 +147,13 @@ export function buildDrillSystemPrompt(params: BuildSystemPromptParams): string 
     return interpolatePromptVariables(drillSystemPromptFocusTemplate, {
       topicContent,
       focusSelectionValue: focusSelection.value,
+      turnInfoSection,
       drillPlanSection,
     });
   } else {
     return interpolatePromptVariables(drillSystemPromptBaseTemplate, {
       topicContent,
+      turnInfoSection,
       drillPlanSection,
     });
   }

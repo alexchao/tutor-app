@@ -9,6 +9,8 @@ import { eq, and } from 'drizzle-orm';
 import type { DrillPlanWithProgress } from './generate-drill-plan.js';
 import { buildDrillSystemPrompt } from '../drill-message-prompts.js';
 
+const TARGET_NUM_TURNS = 10;
+
 // Chat event types - polymorphic to support different event kinds
 type ChatMessageEvent = {
   eventType: 'chat-message';
@@ -127,11 +129,18 @@ async function streamLLMResponseStep(
   drillPlan: DrillPlanWithProgress,
   userMessage: string | null
 ): Promise<StreamLLMResponseResult> {
+  // Count turns by counting user messages in chatEvents
+  const numTurns = sessionData.chatEvents.filter(
+    (event) => event.eventType === 'chat-message' && event.eventData.role === 'user'
+  ).length;
+
   // Build system prompt
   const systemPrompt = buildDrillSystemPrompt({
     topicContent,
     focusSelection,
     drillPlan,
+    numTurns,
+    targetNumTurns: TARGET_NUM_TURNS,
   });
 
   // Build input messages from stored AI SDK messages (includes tool calls)
@@ -215,7 +224,7 @@ async function streamLLMResponseStep(
 
   // Batch deltas to reduce Ably message count (50 msg/sec limit)
   // Accumulate tokens and flush every BATCH_INTERVAL_MS
-  const BATCH_INTERVAL_MS = 50;
+  const BATCH_INTERVAL_MS = 100;
   let pendingDelta = '';
   let lastFlushTime = Date.now();
 
