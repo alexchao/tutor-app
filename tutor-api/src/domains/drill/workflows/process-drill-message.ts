@@ -1,5 +1,5 @@
 import { DBOS } from '@dbos-inc/dbos-sdk';
-import { stepCountIs, streamText, tool } from 'ai';
+import { stepCountIs, streamText, tool, type ModelMessage } from 'ai';
 import { z } from 'zod';
 import { anthropic } from '../../../lib/anthropic.js';
 import { ablyClient } from '../../../lib/ably.js';
@@ -31,6 +31,7 @@ type ChatEvent = ChatMessageEvent | PhaseCompleteEvent;
 
 interface SessionData {
   chatEvents: ChatEvent[];
+  aiSdkMessages: ModelMessage[];
 }
 
 interface ProcessDrillMessageInput {
@@ -80,7 +81,7 @@ async function reloadSessionDataStep(sessionId: number): Promise<SessionData> {
     throw new Error(`Drill session ${sessionId} not found`);
   }
 
-  return (session.sessionData as SessionData) ?? { chatEvents: [] };
+  return (session.sessionData as SessionData) ?? { chatEvents: [], aiSdkMessages: [] };
 }
 
 async function storeUserMessageStep(
@@ -98,7 +99,7 @@ async function storeUserMessageStep(
     },
   };
 
-  const sessionData: SessionData = existingSessionData ?? { chatEvents: [] };
+  const sessionData: SessionData = existingSessionData ?? { chatEvents: [], aiSdkMessages: [] };
   sessionData.chatEvents.push(userChatEvent);
 
   await db
@@ -112,14 +113,20 @@ async function storeUserMessageStep(
   return sessionData;
 }
 
+interface StreamLLMResponseResult {
+  fullResponse: string;
+  responseMessages: ModelMessage[];
+}
+
 async function streamLLMResponseStep(
   sessionId: number,
   assistantMessageId: string,
   sessionData: SessionData,
   topicContent: string,
   focusSelection: any,
-  drillPlan: DrillPlanWithProgress
-): Promise<string> {
+  drillPlan: DrillPlanWithProgress,
+  userMessage: string | null
+): Promise<StreamLLMResponseResult> {
   // Build system prompt
   const systemPrompt = buildDrillSystemPrompt({
     topicContent,
@@ -127,13 +134,13 @@ async function streamLLMResponseStep(
     drillPlan,
   });
 
-  // Build messages array from chat events (only chat-message events)
-  const messages = sessionData.chatEvents
-    .filter((event): event is ChatMessageEvent => event.eventType === 'chat-message')
-    .map((event) => ({
-      role: event.eventData.role,
-      content: event.eventData.content,
-    }));
+  // Build input messages from stored AI SDK messages (includes tool calls)
+  const inputMessages: ModelMessage[] = [...sessionData.aiSdkMessages];
+
+  // Add the current user message if present
+  if (userMessage !== null) {
+    inputMessages.push({ role: 'user', content: userMessage });
+  }
 
   // Create markPhaseComplete tool with closure over session state
   const markPhaseCompleteTool = tool({
@@ -186,12 +193,12 @@ async function streamLLMResponseStep(
   const stopWhen = stepCountIs(2);
 
   // Stream LLM response
-  // When messages is empty (AI goes first), use prompt instead
-  const { textStream } = messages.length > 0
+  // When inputMessages is empty (AI goes first), use prompt instead
+  const { textStream, response } = inputMessages.length > 0
     ? streamText({
         model,
         system: systemPrompt,
-        messages: messages as any,
+        messages: inputMessages,
         tools: { markPhaseComplete: markPhaseCompleteTool },
         stopWhen
       })
@@ -244,14 +251,22 @@ async function streamLLMResponseStep(
     messageId: assistantMessageId,
   });
 
-  return fullResponse;
+  // Await the response to get the AI SDK messages (includes tool calls)
+  const finalResponse = await response;
+
+  return {
+    fullResponse,
+    responseMessages: finalResponse.messages,
+  };
 }
 
 async function storeAssistantMessageStep(
   sessionId: number,
   assistantMessageId: string,
   assistantMessage: string,
-  sessionData: SessionData
+  sessionData: SessionData,
+  responseMessages: ModelMessage[],
+  userMessage: string | null
 ): Promise<void> {
   const assistantChatEvent: ChatEvent = {
     eventType: 'chat-message',
@@ -263,6 +278,15 @@ async function storeAssistantMessageStep(
   };
 
   sessionData.chatEvents.push(assistantChatEvent);
+
+  // Add user message to AI SDK messages first (if present)
+  // response.messages only contains the new assistant/tool messages, not the input
+  if (userMessage !== null) {
+    sessionData.aiSdkMessages.push({ role: 'user', content: userMessage });
+  }
+
+  // Append AI SDK response messages (includes tool calls and results)
+  sessionData.aiSdkMessages.push(...responseMessages);
 
   await db
     .update(drillSessions)
@@ -296,14 +320,14 @@ async function processDrillMessageWorkflowFunction(
     );
   } else {
     // AI goes first - use existing session data or initialize empty
-    sessionData = (session.sessionData as SessionData) ?? { chatEvents: [] };
+    sessionData = (session.sessionData as SessionData) ?? { chatEvents: [], aiSdkMessages: [] };
   }
 
   // Get drill plan from session
   const drillPlan = session.drillPlan as DrillPlanWithProgress;
 
   // Step 3: Stream LLM response
-  const assistantMessage = await DBOS.runStep(
+  const { fullResponse: assistantMessage, responseMessages } = await DBOS.runStep(
     () =>
       streamLLMResponseStep(
         sessionId,
@@ -311,7 +335,8 @@ async function processDrillMessageWorkflowFunction(
         sessionData,
         topic.contentMd,
         session.focusSelection,
-        drillPlan
+        drillPlan,
+        userMessage
       ),
     { name: 'streamLLMResponse', retriesAllowed: true, intervalSeconds: 2, maxAttempts: 3 }
   );
@@ -322,9 +347,9 @@ async function processDrillMessageWorkflowFunction(
     { name: 'reloadSessionData' }
   );
 
-  // Step 5: Store assistant message
+  // Step 5: Store assistant message and AI SDK response messages
   await DBOS.runStep(
-    () => storeAssistantMessageStep(sessionId, assistantMessageId, assistantMessage, latestSessionData),
+    () => storeAssistantMessageStep(sessionId, assistantMessageId, assistantMessage, latestSessionData, responseMessages, userMessage),
     { name: 'storeAssistantMessage' }
   );
 }
