@@ -35,7 +35,7 @@ const drillPlanPromptTemplate = `You are designing a lesson plan for a tutoring 
 
 ## Instructions
 
-Create a drill plan with 3-6 phases that will guide the tutoring conversation. Each phase should cover a distinct concept or skill from the topic content.
+Create a drill plan with 3-4 phases that will guide the tutoring conversation. Each phase should cover a distinct concept or skill from the topic content.
 
 ### Phase Guidelines
 
@@ -43,20 +43,21 @@ Create a drill plan with 3-6 phases that will guide the tutoring conversation. E
 2. **Progression**: Order phases from foundational concepts to more advanced ones
 3. **Final Phase**: The last phase MUST be a culminating/application phase that requires the student to apply their knowledge to a specific situation or problem
 4. **Distinct Concepts**: Each phase should focus on a different concept - avoid overlap between phases
+5. **Specific Concepts**: Each phase should focus on a narrow,specific concept - avoid broad or general phrasing
 
 ### Output Format
 
 For each phase, provide:
-- **id**: A unique kebab-case slug derived from the title (e.g., "understanding-core-concepts")
+- **id**: A unique kebab-case slug derived from the title (e.g., "light-dependent-reactions")
 - **title**: A short, descriptive title (3-5 words)
 
 ### Example Output
 
 {
   "phases": [
-    { "id": "defining-key-terms", "title": "Defining Key Terms" },
-    { "id": "understanding-relationships", "title": "Understanding Relationships" },
-    { "id": "applying-to-scenarios", "title": "Applying to Scenarios" }
+    { "id": "role-of-chlorophyll", "title": "Role of Chlorophyll" },
+    { "id": "steps-light-reactions", "title": "Steps in Light Reactions" },
+    { "id": "outputs-photosynthesis", "title": "Outputs of Photosynthesis" },
   ]
 }`;
 
@@ -138,7 +139,7 @@ async function generatePlanStep(
   });
 
   const { object } = await generateObject({
-    model: openai('gpt-4.1-2025-04-14'),
+    model: openai('gpt-5.1-2025-11-13'),
     schema: drillPlanSchema,
     prompt,
   });
