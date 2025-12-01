@@ -1,5 +1,5 @@
 import { View, StyleSheet, Animated } from 'react-native';
-import { Text, Button, useTheme } from 'react-native-paper';
+import { Text, Button, useTheme, type MD3Theme } from 'react-native-paper';
 import { useEffect, useRef } from 'react';
 
 interface Phase {
@@ -41,8 +41,8 @@ export function DrillProgressBar({
           const phaseNumber = index + 1;
 
           return (
-            <View key={phase.id} style={styles.phaseContainer}>
-              <View style={styles.indicatorRow}>
+            <View key={phase.id} style={[styles.phaseContainer, isLast && styles.lastPhaseContainer]}>
+              <View style={[styles.indicatorRow, isLast && styles.lastIndicatorRow]}>
                 <PhaseIndicator
                   phaseNumber={phaseNumber}
                   isCompleted={isCompleted}
@@ -94,7 +94,7 @@ interface PhaseIndicatorProps {
   phaseNumber: number;
   isCompleted: boolean;
   isRecentlyCompleted: boolean;
-  theme: ReturnType<typeof useTheme>;
+  theme: MD3Theme;
 }
 
 function PhaseIndicator({
@@ -190,7 +190,7 @@ function PhaseIndicator({
 interface CompletionPillProps {
   phaseTitle: string;
   onAnimationComplete?: () => void;
-  theme: ReturnType<typeof useTheme>;
+  theme: MD3Theme;
 }
 
 function CompletionPill({
@@ -267,11 +267,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  lastPhaseContainer: {
+    flex: 0,
+    alignItems: 'flex-end',
+  },
   indicatorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
     justifyContent: 'center',
+  },
+  lastIndicatorRow: {
+    justifyContent: 'flex-start',
   },
   indicatorWrapper: {
     position: 'relative',
