@@ -39,6 +39,8 @@ In your interaction with the user, progress through these phases in order.
 
 {{currentPhaseInstruction}}
 
+{{turnProgress}}
+
 ### When to Mark a Phase Complete
 
 Mark a phase complete ONLY after you have:
@@ -55,8 +57,6 @@ const drillSystemPromptBaseTemplate = `You are a helpful tutor quizzing a studen
 </topic_content>
 
 ${GENERAL_GUIDELINES}
-
-{{turnInfoSection}}
 
 {{drillPlanSection}}
 
@@ -75,8 +75,6 @@ ${GENERAL_GUIDELINES}
 The student wants to focus specifically on: {{focusSelectionValue}}
 
 - Only ask questions about the focus area
-
-{{turnInfoSection}}
 
 {{drillPlanSection}}
 
@@ -108,28 +106,12 @@ export function buildDrillSystemPrompt(params: BuildSystemPromptParams): string 
     })
     .join('\n');
 
-  // Build turn information and progress guidance
-  let turnInfoSection = '';
+  // Build turn progress information (without phase guidance)
+  let turnProgress = '';
   if (numTurns < targetNumTurns) {
-    const progress = numTurns / targetNumTurns;
-    // Map progress to expected phase index (capped at last phase)
-    const expectedPhaseIndex = Math.min(
-      Math.floor(progress * drillPlan.phases.length),
-      drillPlan.phases.length - 1
-    );
-    const expectedPhase = drillPlan.phases[expectedPhaseIndex];
-    
-    turnInfoSection = `## Turn Progress
-
-You are on turn ${numTurns} of ${targetNumTurns} target turns.
-
-Based on your progress (${Math.round(progress * 100)}%), you should be working on the "${expectedPhase.title}" phase (phase ${expectedPhaseIndex + 1} of ${drillPlan.phases.length}).`;
+    turnProgress = `You are on turn ${numTurns} of ${targetNumTurns} target turns. Your goal is to complete the entire drill plan within ${targetNumTurns} turns.`;
   } else {
-    turnInfoSection = `## Turn Progress
-
-You are on turn ${numTurns} of ${targetNumTurns} target turns.
-
-⚠️ You have exceeded the target number of turns. Move on and wrap up quickly.`;
+    turnProgress = `You are on turn ${numTurns} of ${targetNumTurns} target turns. ⚠️ You have exceeded the target number of turns. Move on and wrap up quickly.`;
   }
 
   // Build instruction for current phase
@@ -138,6 +120,7 @@ You are on turn ${numTurns} of ${targetNumTurns} target turns.
     : 'All phases are complete. Wrap up the session.';
 
   const drillPlanSection = interpolatePromptVariables(DRILL_PLAN_SECTION, {
+    turnProgress,
     phasesWithStatus,
     currentPhaseInstruction,
   });
@@ -147,13 +130,11 @@ You are on turn ${numTurns} of ${targetNumTurns} target turns.
     return interpolatePromptVariables(drillSystemPromptFocusTemplate, {
       topicContent,
       focusSelectionValue: focusSelection.value,
-      turnInfoSection,
       drillPlanSection,
     });
   } else {
     return interpolatePromptVariables(drillSystemPromptBaseTemplate, {
       topicContent,
-      turnInfoSection,
       drillPlanSection,
     });
   }
