@@ -115,14 +115,19 @@ async function storeUserMessageStep(
   return sessionData;
 }
 
+interface AssistantMessage {
+  id: string;
+  content: string;
+}
+
 interface StreamLLMResponseResult {
-  fullResponse: string;
+  assistantMessages: AssistantMessage[];
   responseMessages: ModelMessage[];
 }
 
 async function streamLLMResponseStep(
   sessionId: number,
-  assistantMessageId: string,
+  initialMessageId: string,
   sessionData: SessionData,
   topicContent: string,
   focusSelection: any,
@@ -203,7 +208,7 @@ async function streamLLMResponseStep(
 
   // Stream LLM response
   // When inputMessages is empty (AI goes first), use prompt instead
-  const { textStream, response } = inputMessages.length > 0
+  const { fullStream, response } = inputMessages.length > 0
     ? streamText({
         model,
         system: systemPrompt,
@@ -220,19 +225,22 @@ async function streamLLMResponseStep(
       });
 
   const channel = ablyClient.channels.get(`drill:${sessionId}`);
-  let fullResponse = '';
+  
+  // Track multiple messages - each tool call splits into a new message
+  const assistantMessages: AssistantMessage[] = [];
+  let currentMessageId = initialMessageId;
+  let accumulatedText = '';
 
   // Batch deltas to reduce Ably message count (50 msg/sec limit)
-  // Accumulate tokens and flush every BATCH_INTERVAL_MS
-  const BATCH_INTERVAL_MS = 100;
+  const BATCH_INTERVAL_MS = 200;
   let pendingDelta = '';
   let lastFlushTime = Date.now();
 
-  const flushDelta = async () => {
+  const flushDelta = async (): Promise<void> => {
     if (pendingDelta) {
       await channel.publish('message', {
         type: 'delta',
-        messageId: assistantMessageId,
+        messageId: currentMessageId,
         content: pendingDelta,
       });
       pendingDelta = '';
@@ -240,53 +248,93 @@ async function streamLLMResponseStep(
     }
   };
 
-  for await (const textDelta of textStream) {
-    fullResponse += textDelta;
-    pendingDelta += textDelta;
+  // Finalize current message and prepare for next one
+  const finalizeCurrentMessage = async (): Promise<void> => {
+    // Flush any pending delta first
+    await flushDelta();
     
-    // Flush if enough time has passed since last flush
-    const timeSinceLastFlush = Date.now() - lastFlushTime;
-    if (timeSinceLastFlush >= BATCH_INTERVAL_MS) {
-      await flushDelta();
+    // Only finalize if there's accumulated text
+    if (accumulatedText.trim()) {
+      // Publish completion event for this message
+      await channel.publish('message', {
+        type: 'complete',
+        messageId: currentMessageId,
+      });
+      
+      // Store this message
+      assistantMessages.push({
+        id: currentMessageId,
+        content: accumulatedText,
+      });
+      
+      // Generate new message ID for next segment
+      currentMessageId = crypto.randomUUID();
+      accumulatedText = '';
     }
+  };
+
+  for await (const chunk of fullStream) {
+    if (chunk.type === 'text-delta') {
+      accumulatedText += chunk.text;
+      pendingDelta += chunk.text;
+      
+      // Flush if enough time has passed since last flush
+      const timeSinceLastFlush = Date.now() - lastFlushTime;
+      if (timeSinceLastFlush >= BATCH_INTERVAL_MS) {
+        await flushDelta();
+      }
+    } else if (chunk.type === 'tool-call') {
+      // Tool call detected - finalize current message before tool executes
+      // This splits the response into separate messages around tool calls
+      await finalizeCurrentMessage();
+      
+      console.log('[Tool Call]', chunk.toolName, chunk.input);
+    }
+    // Other chunk types (tool-result, finish, etc.) are handled automatically
   }
 
-  // Flush any remaining content
+  // Finalize any remaining accumulated text as the last message
   await flushDelta();
-
-  // Publish completion event (await this one to ensure delivery)
-  await channel.publish('message', {
-    type: 'complete',
-    messageId: assistantMessageId,
-  });
+  if (accumulatedText.trim()) {
+    await channel.publish('message', {
+      type: 'complete',
+      messageId: currentMessageId,
+    });
+    
+    assistantMessages.push({
+      id: currentMessageId,
+      content: accumulatedText,
+    });
+  }
 
   // Await the response to get the AI SDK messages (includes tool calls)
   const finalResponse = await response;
 
   return {
-    fullResponse,
+    assistantMessages,
     responseMessages: finalResponse.messages,
   };
 }
 
-async function storeAssistantMessageStep(
+async function storeAssistantMessagesStep(
   sessionId: number,
-  assistantMessageId: string,
-  assistantMessage: string,
+  assistantMessages: AssistantMessage[],
   sessionData: SessionData,
   responseMessages: ModelMessage[],
   userMessage: string | null
 ): Promise<void> {
-  const assistantChatEvent: ChatEvent = {
-    eventType: 'chat-message',
-    id: assistantMessageId,
-    eventData: {
-      role: 'assistant',
-      content: assistantMessage,
-    },
-  };
-
-  sessionData.chatEvents.push(assistantChatEvent);
+  // Add each assistant message as a chat event
+  for (const message of assistantMessages) {
+    const assistantChatEvent: ChatEvent = {
+      eventType: 'chat-message',
+      id: message.id,
+      eventData: {
+        role: 'assistant',
+        content: message.content,
+      },
+    };
+    sessionData.chatEvents.push(assistantChatEvent);
+  }
 
   // Add user message to AI SDK messages first (if present)
   // response.messages only contains the new assistant/tool messages, not the input
@@ -311,8 +359,8 @@ async function processDrillMessageWorkflowFunction(
 ): Promise<void> {
   const { sessionId, messageId, userMessage, userId } = input;
 
-  // Generate assistant message ID
-  const assistantMessageId = crypto.randomUUID();
+  // Generate initial assistant message ID (may be split into multiple if tool calls occur)
+  const initialMessageId = crypto.randomUUID();
 
   // Step 1: Load session and topic
   const { session, topic } = await DBOS.runStep(
@@ -335,12 +383,12 @@ async function processDrillMessageWorkflowFunction(
   // Get drill plan from session
   const drillPlan = session.drillPlan as DrillPlanWithProgress;
 
-  // Step 3: Stream LLM response
-  const { fullResponse: assistantMessage, responseMessages } = await DBOS.runStep(
+  // Step 3: Stream LLM response (may produce multiple assistant messages if tool calls occur)
+  const { assistantMessages, responseMessages } = await DBOS.runStep(
     () =>
       streamLLMResponseStep(
         sessionId,
-        assistantMessageId,
+        initialMessageId,
         sessionData,
         topic.contentMd,
         session.focusSelection,
@@ -356,10 +404,10 @@ async function processDrillMessageWorkflowFunction(
     { name: 'reloadSessionData' }
   );
 
-  // Step 5: Store assistant message and AI SDK response messages
+  // Step 5: Store assistant messages and AI SDK response messages
   await DBOS.runStep(
-    () => storeAssistantMessageStep(sessionId, assistantMessageId, assistantMessage, latestSessionData, responseMessages, userMessage),
-    { name: 'storeAssistantMessage' }
+    () => storeAssistantMessagesStep(sessionId, assistantMessages, latestSessionData, responseMessages, userMessage),
+    { name: 'storeAssistantMessages' }
   );
 }
 

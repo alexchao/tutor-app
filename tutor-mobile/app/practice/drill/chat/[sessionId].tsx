@@ -31,12 +31,6 @@ interface DrillPlan {
   planProgress: Record<string, { status: 'incomplete' | 'complete' }>;
 }
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-}
-
 export default function DrillChatScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -44,7 +38,8 @@ export default function DrillChatScreen() {
   const sessionIdNum = parseInt(sessionId);
   const { getToken } = useAuth();
   
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Store all chat events (messages and phase completions) for inline rendering
+  const [chatEvents, setChatEvents] = useState<ChatEvent[]>([]);
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [completedPhaseIds, setCompletedPhaseIds] = useState<Set<string>>(new Set());
@@ -56,10 +51,23 @@ export default function DrillChatScreen() {
     sessionId,
     getToken,
     onMessageComplete: (messageId, content) => {
-      setMessages((prev) => [...prev, { id: messageId, role: 'assistant', content }]);
+      const newEvent: ChatMessageEvent = {
+        eventType: 'chat-message',
+        id: messageId,
+        eventData: { role: 'assistant', content },
+      };
+      setChatEvents((prev) => [...prev, newEvent]);
       setIsStreaming(false);
     },
     onPhaseComplete: (phaseId) => {
+      // Add phase-complete event to chat events for inline display
+      const newEvent: PhaseCompleteEvent = {
+        eventType: 'phase-complete',
+        id: `phase-complete-${phaseId}-${Date.now()}`,
+        eventData: { phaseId },
+      };
+      setChatEvents((prev) => [...prev, newEvent]);
+      // Also update progress bar state
       setCompletedPhaseIds((prev) => new Set([...prev, phaseId]));
       setRecentlyCompletedPhaseId(phaseId);
     },
@@ -80,15 +88,13 @@ export default function DrillChatScreen() {
 
   const sendMessageMutation = trpc.drill.sendMessage.useMutation({
     onSuccess: (data, variables) => {
-      // Add user message with the ID from backend
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: data.messageId,
-          role: 'user',
-          content: variables.message,
-        },
-      ]);
+      // Add user message event
+      const newEvent: ChatMessageEvent = {
+        eventType: 'chat-message',
+        id: data.messageId,
+        eventData: { role: 'user', content: variables.message },
+      };
+      setChatEvents((prev) => [...prev, newEvent]);
       
       // Note: The assistant response will come through SSE, not returned here
       setIsStreaming(true);
@@ -107,19 +113,13 @@ export default function DrillChatScreen() {
     },
   });
 
-  // Load messages and drill plan progress from session data
+  // Load all chat events and drill plan progress from session data
   useEffect(() => {
     if (sessionQuery.data?.sessionData) {
       const sessionData = sessionQuery.data.sessionData as { chatEvents?: ChatEvent[] };
       if (sessionData.chatEvents) {
-        const loadedMessages = sessionData.chatEvents
-          .filter((event): event is ChatMessageEvent => event.eventType === 'chat-message')
-          .map((event) => ({
-            id: event.id,
-            role: event.eventData.role,
-            content: event.eventData.content,
-          }));
-        setMessages(loadedMessages);
+        // Load all events (messages and phase-complete indicators)
+        setChatEvents(sessionData.chatEvents);
       }
     }
 
@@ -154,14 +154,14 @@ export default function DrillChatScreen() {
     }, 100);
   };
 
-  // Auto-scroll when messages update
+  // Auto-scroll when chat events update
   useEffect(() => {
-    if (messages.length > 0) {
+    if (chatEvents.length > 0) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages]);
+  }, [chatEvents]);
 
   // Callback to clear the recently completed phase after animation
   const handlePhaseAnimationComplete = useCallback(() => {
@@ -221,8 +221,14 @@ export default function DrillChatScreen() {
     );
   }
 
-  const allMessages = [...messages];
   const pendingEntries = Array.from(pendingMessages.entries());
+
+  // Helper to get phase title from drill plan
+  const getPhaseTitle = (phaseId: string): string => {
+    if (!drillPlan?.phases) return phaseId;
+    const phase = drillPlan.phases.find((p) => p.id === phaseId);
+    return phase?.title ?? phaseId;
+  };
   
   return (
     <>
@@ -275,39 +281,64 @@ export default function DrillChatScreen() {
         )}
         <FlatList
           ref={flatListRef}
-          data={allMessages}
+          data={chatEvents}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messageList}
-          renderItem={({ item }) => (
-            <View
-              style={[
-                styles.messageContainer,
-                item.role === 'user' ? styles.userMessage : styles.assistantMessage,
-              ]}
-            >
-              <Card
+          renderItem={({ item }) => {
+            // Render phase-complete indicator
+            if (item.eventType === 'phase-complete') {
+              const phaseTitle = getPhaseTitle(item.eventData.phaseId);
+              return (
+                <View style={styles.phaseCompleteContainer}>
+                  <IconButton
+                    icon="check-circle"
+                    size={16}
+                    iconColor={theme.colors.primary}
+                    style={styles.phaseCompleteIcon}
+                  />
+                  <Text
+                    variant="labelSmall"
+                    style={[styles.phaseCompleteText, { color: theme.colors.onSurfaceVariant }]}
+                  >
+                    {phaseTitle}
+                  </Text>
+                </View>
+              );
+            }
+
+            // Render chat message
+            const role = item.eventData.role;
+            return (
+              <View
                 style={[
-                  styles.messageCard,
-                  item.role === 'user'
-                    ? { backgroundColor: theme.colors.primaryContainer }
-                    : { backgroundColor: theme.colors.surfaceVariant },
+                  styles.messageContainer,
+                  role === 'user' ? styles.userMessage : styles.assistantMessage,
                 ]}
               >
-                <Card.Content>
-                  <Text
-                    variant="bodyMedium"
-                    style={
-                      item.role === 'user'
-                        ? { color: theme.colors.onPrimaryContainer }
-                        : { color: theme.colors.onSurfaceVariant }
-                    }
-                  >
-                    {item.content}
-                  </Text>
-                </Card.Content>
-              </Card>
-            </View>
-          )}
+                <Card
+                  style={[
+                    styles.messageCard,
+                    role === 'user'
+                      ? { backgroundColor: theme.colors.primaryContainer }
+                      : { backgroundColor: theme.colors.surfaceVariant },
+                  ]}
+                >
+                  <Card.Content>
+                    <Text
+                      variant="bodyMedium"
+                      style={
+                        role === 'user'
+                          ? { color: theme.colors.onPrimaryContainer }
+                          : { color: theme.colors.onSurfaceVariant }
+                      }
+                    >
+                      {item.eventData.content}
+                    </Text>
+                  </Card.Content>
+                </Card>
+              </View>
+            );
+          }}
           ListFooterComponent={
             <>
               {pendingEntries.map(([id, content]) => (
@@ -387,6 +418,20 @@ const styles = StyleSheet.create({
   },
   messageCard: {
     borderRadius: 12,
+  },
+  phaseCompleteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  phaseCompleteIcon: {
+    margin: 0,
+    marginRight: 4,
+  },
+  phaseCompleteText: {
+    fontStyle: 'italic',
   },
   inputContainer: {
     flexDirection: 'row',

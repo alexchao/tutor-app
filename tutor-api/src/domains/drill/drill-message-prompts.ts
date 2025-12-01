@@ -10,7 +10,6 @@ export const GENERAL_GUIDELINES = `## Guidelines
 
 ## Topic Content Usage
 
-- Ground the conversation in the provided topic_content
 - Assume the topic_content is the only source of truth; do not make up information or fill in details for the student
 - The student cannot see the topic_content; if you reference content from it, you must provide enough context for them to understand what you're talking about.
   
