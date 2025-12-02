@@ -2,15 +2,22 @@ import { z } from 'zod';
 import { protectedProcedure } from '../procedures.js';
 import { db } from '../db/connection.js';
 import { drillSessions, learningTopics } from '../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc, isNotNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { DBOS } from '@dbos-inc/dbos-sdk';
 import { processDrillMessageWorkflow, generateDrillPlanWorkflow, summarizeDrillSessionWorkflow } from '../domains/drill/workflows/index.js';
 
-const focusSelectionSchema = z.object({
-  focusType: z.literal('custom'),
-  value: z.string().min(1),
-}).nullable();
+const focusSelectionSchema = z.discriminatedUnion('focusType', [
+  z.object({
+    focusType: z.literal('custom'),
+    value: z.string().min(1),
+  }),
+  z.object({
+    focusType: z.literal('previous-focus-areas'),
+    sourceSessionId: z.number(),
+    focusAreas: z.array(z.string()),
+  }),
+]).nullable();
 
 export const drillRouter = {
   createSession: protectedProcedure
@@ -199,6 +206,30 @@ export const drillRouter = {
       }
 
       return session;
+    }),
+
+  getRecentCompletedSessions: protectedProcedure
+    .input(z.object({ learningTopicId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const sessions = await db
+        .select({
+          id: drillSessions.id,
+          chatCompletedAt: drillSessions.chatCompletedAt,
+          completionData: drillSessions.completionData,
+        })
+        .from(drillSessions)
+        .where(
+          and(
+            eq(drillSessions.learningTopicId, input.learningTopicId),
+            eq(drillSessions.userId, ctx.userId),
+            isNotNull(drillSessions.chatCompletedAt),
+            isNotNull(drillSessions.completionData)
+          )
+        )
+        .orderBy(desc(drillSessions.chatCompletedAt))
+        .limit(3);
+
+      return sessions;
     }),
 };
 

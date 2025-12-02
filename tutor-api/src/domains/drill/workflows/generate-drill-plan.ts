@@ -1,7 +1,7 @@
 import { DBOS } from '@dbos-inc/dbos-sdk';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { openai } from '../../../lib/openai.js';
+import { anthropic } from '../../../lib/anthropic.js';
 import { db } from '../../../db/connection.js';
 import { drillSessions, learningTopics } from '../../../db/schema.js';
 import { eq } from 'drizzle-orm';
@@ -35,15 +35,9 @@ const drillPlanPromptTemplate = `You are designing a lesson plan for a tutoring 
 
 ## Instructions
 
-Create a drill plan with 3-4 phases that will guide the tutoring conversation. Each phase should cover a distinct concept or skill from the topic content.
+Create a drill plan with 3-4 phases that will guide the tutoring conversation.
 
-### Phase Guidelines
-
-1. **Coverage**: Ensure the phases collectively cover the key concepts from the topic content
-2. **Progression**: Order phases from foundational concepts to more advanced ones
-3. **Final Phase**: The last phase MUST be a culminating/application phase that requires the student to apply their knowledge to a specific situation or problem
-4. **Distinct Concepts**: Each phase should focus on a different concept - avoid overlap between phases
-5. **Specific Concepts**: Each phase should focus on a narrow,specific concept - avoid broad or general phrasing
+{{phaseGuidelines}}
 
 ### Output Format
 
@@ -66,6 +60,43 @@ const focusSectionTemplate = `## Focus Area
 The student wants to focus specifically on: {{focusSelectionValue}}
 
 Ensure the phases are tailored to this focus area while still providing comprehensive coverage.`;
+
+const previousFocusAreasSectionTemplate = `## Focus Areas from Previous Drill
+
+The student wants to focus on these specific areas identified from a previous drill session:
+
+<focus_areas>
+{{focusAreas}}
+</focus_areas>
+
+Create drill phases that directly address each of these focus areas. Each phase should target one or more of these specific concepts.`;
+
+// Phase guidelines for "everything" focus (null focusSelection)
+const everythingPhaseGuidelines = `### Phase Guidelines
+
+1. **Coverage**: Ensure the phases collectively cover the key concepts from the topic content
+2. **Progression**: Order phases from foundational concepts to more advanced ones
+3. **Final Phase**: The last phase MUST be a culminating/application phase that requires the student to apply their knowledge to a specific situation or problem
+4. **Distinct Concepts**: Each phase should focus on a different concept - avoid overlap between phases
+5. **Specific Concepts**: Each phase should focus on a narrow, specific concept - avoid broad or general phrasing`;
+
+// Phase guidelines for "custom" focus
+const customFocusPhaseGuidelines = `### Phase Guidelines
+
+1. **Focus Alignment**: All phases must directly relate to the student's specified focus area
+2. **Different Aspects**: Each phase should cover a different aspect or angle of the focus area
+3. **Final Phase**: The last phase MUST be a culminating/application phase that requires the student to apply their knowledge to a specific situation or problem
+4. **Distinct Concepts**: Each phase should focus on a different concept - avoid overlap between phases
+5. **Specific Concepts**: Each phase should focus on a narrow, specific concept - avoid broad or general phrasing`;
+
+// Phase guidelines for "previous-focus-areas" focus
+const previousFocusAreasPhaseGuidelines = `### Phase Guidelines
+
+1. **Address Focus Areas**: Each phase should target one or more of the provided focus areas
+2. **Complete Coverage**: Ensure all provided focus areas are addressed across the phases
+3. **Final Phase**: The last phase MUST be a culminating/application phase that requires the student to apply their knowledge to a specific situation or problem
+4. **Distinct Concepts**: Each phase should focus on a different concept - avoid overlap between phases
+5. **Specific Concepts**: Each phase should focus on a narrow, specific concept - avoid broad or general phrasing`;
 
 interface GenerateDrillPlanInput {
   sessionId: number;
@@ -122,24 +153,35 @@ async function generatePlanStep(
   topicContent: string,
   focusSelection: unknown
 ): Promise<DrillPlan> {
-  // Build the focus section if a custom focus was provided
+  // Build the focus section and select phase guidelines based on focus type
   let focusSection = '';
+  let phaseGuidelines = everythingPhaseGuidelines;
+
   if (focusSelection && typeof focusSelection === 'object' && 'focusType' in focusSelection) {
-    const fs = focusSelection as { focusType: string; value?: string };
+    const fs = focusSelection as { focusType: string; value?: string; focusAreas?: string[] };
     if (fs.focusType === 'custom' && fs.value) {
       focusSection = interpolatePromptVariables(focusSectionTemplate, {
         focusSelectionValue: fs.value,
       });
+      phaseGuidelines = customFocusPhaseGuidelines;
+    } else if (fs.focusType === 'previous-focus-areas' && fs.focusAreas && fs.focusAreas.length > 0) {
+      focusSection = interpolatePromptVariables(previousFocusAreasSectionTemplate, {
+        focusAreas: fs.focusAreas.map((area, i) => `${i + 1}. ${area}`).join('\n'),
+      });
+      phaseGuidelines = previousFocusAreasPhaseGuidelines;
     }
   }
 
   const prompt = interpolatePromptVariables(drillPlanPromptTemplate, {
     topicContent,
     focusSection,
+    phaseGuidelines,
   });
+  
+  console.log('Generated drill plan prompt:', prompt);
 
   const { object } = await generateObject({
-    model: openai('gpt-5.1-2025-11-13'),
+    model: anthropic('claude-sonnet-4-5-20250929'),
     schema: drillPlanSchema,
     prompt,
   });

@@ -200,8 +200,8 @@ async function streamLLMResponseStep(
   
   console.log('Calling streamText with system prompt:', systemPrompt);
   
-  const model = anthropic('claude-haiku-4-5-20251001')
-  // const model = anthropic('claude-sonnet-4-5-20250929');
+  // const model = anthropic('claude-haiku-4-5-20251001')
+  const model = anthropic('claude-sonnet-4-5-20250929');
   
   // 2 steps, to allow the model to mark a phase complete and then send a message
   const stopWhen = stepCountIs(2);
