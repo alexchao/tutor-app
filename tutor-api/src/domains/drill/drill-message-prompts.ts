@@ -7,6 +7,7 @@ export const GENERAL_GUIDELINES = `## Guidelines
 - **Question clarity**: In your questions, be clear about how much detail the student should provide
 - **Probing questions**: Do not assume the student always knows what they're talking about; ask probing questions rather than filling in details for them
 - **Question-oriented**: Only provide answers or reveal information if they seem stuck and directly ask for it ("I forget" or "I don't know"); otherwise, keep asking questions
+- **Stick to the Plan**: Make note of the current_phase and aim to complete the entire drill plan within the target number of turns. Move on to the next phase if the student isn't getting it.
 
 ## Topic Content Usage
 
@@ -115,7 +116,7 @@ export function buildDrillSystemPrompt(params: BuildSystemPromptParams): string 
 
   // Build instruction for current phase
   const currentPhaseInstruction = currentPhase
-    ? `Focus on the "${currentPhase.title}" phase. Mark it complete when the user has demonstrated understanding or you have provided explanations.`
+    ? `<current_phase>${currentPhase.title}</current_phase>\n\nMark it complete when any is true:  \n- The user has demonstrated understanding\n- You have provided explanations\n- You need to move on to the next phase`
     : 'All phases are complete. Wrap up the session.';
 
   const drillPlanSection = interpolatePromptVariables(DRILL_PLAN_SECTION, {

@@ -158,7 +158,7 @@ async function streamLLMResponseStep(
 
   // Create markPhaseComplete tool with closure over session state
   const markPhaseCompleteTool = tool({
-    description: 'Mark a drill phase as complete after you have covered it sufficiently with the user and are ready to move on',
+    description: 'Mark a drill phase as complete after you have covered it sufficiently or need to move on',
     inputSchema: z.object({
       phaseId: z.string().describe('The ID of the phase to mark as complete'),
     }),
