@@ -149,7 +149,7 @@ export default function DrillFocusSelectionScreen() {
               return (
                 <Card
                   key={session.id}
-                  style={[styles.sessionCard, { backgroundColor: '#FFFFFF' }]}
+                  style={[styles.sessionCard, { backgroundColor: theme.colors.surface }]}
                 >
                   <Card.Content style={styles.sessionCardContent}>
                     <View style={styles.sessionRow}>

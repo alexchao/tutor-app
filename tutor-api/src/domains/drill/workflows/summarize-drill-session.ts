@@ -65,15 +65,14 @@ const summarizePromptTemplate = `You are evaluating a tutoring drill session. Th
 Evaluate the student's performance in this drill session and provide:
 
 1. **Phase Ratings**: For each phase in the drill plan, rate the student's understanding:
-   - **strong**: Student demonstrated solid understanding, answered correctly with minimal help
-   - **so-so**: Student showed partial understanding, needed some hints or made minor errors
-   - **weak**: Student struggled significantly, needed substantial help or made major errors
-   - **incomplete**: This phase was not covered or barely touched during the session
+  - **strong**: Student demonstrated solid understanding, answered correctly with minimal help
+  - **so-so**: Student showed partial understanding, needed some hints or made minor errors
+  - **weak**: Student struggled significantly, needed substantial help or made major errors
+  - **incomplete**: This phase was not covered or barely touched during the session
 
-2. **Next Focus Areas**: Identify 2-3 concept areas the student should focus on next. These should be:
-   - Specific concepts from the topic content where the student showed weakness
-   - Concise names (3-6 words each)
-   - Actionable areas for future study
+2. **Next Focus Areas**: Identify 2-3 concept areas to focus on during the next drill session.
+  - Prioritize phases that were **incomplete** or **weak** and use the exact same phase titles
+  - Concise names (3-6 words each)
 
 Base your evaluation strictly on the conversation history provided.`;
 
@@ -173,7 +172,7 @@ async function generateSummaryStep(
   });
 
   const { object } = await generateObject({
-    model: anthropic('claude-3-5-haiku-20241022'),
+    model: anthropic('claude-haiku-4-5-20251001'),
     schema: completionDataSchema,
     prompt,
   });

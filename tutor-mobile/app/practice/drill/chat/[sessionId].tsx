@@ -414,7 +414,7 @@ export default function DrillChatScreen() {
             mode="outlined"
             style={styles.textInput}
             multiline
-            maxLength={500}
+            maxLength={3000}
             disabled={sendMessageMutation.isPending || isStreaming || !!connectionError}
           />
           <IconButton
