@@ -5,7 +5,7 @@ import { drillSessions, learningTopics } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { DBOS } from '@dbos-inc/dbos-sdk';
-import { processDrillMessageWorkflow, generateDrillPlanWorkflow } from '../domains/drill/workflows/index.js';
+import { processDrillMessageWorkflow, generateDrillPlanWorkflow, summarizeDrillSessionWorkflow } from '../domains/drill/workflows/index.js';
 
 const focusSelectionSchema = z.object({
   focusType: z.literal('custom'),
@@ -163,7 +163,42 @@ export const drillRouter = {
         })
         .where(eq(drillSessions.id, input.sessionId));
 
+      // Start summarization workflow in background (returns handle, doesn't wait for completion)
+      await DBOS.startWorkflow(summarizeDrillSessionWorkflow)({
+        sessionId: input.sessionId,
+        userId: ctx.userId,
+      });
+
       return { success: true };
+    }),
+
+  getSessionResults: protectedProcedure
+    .input(z.object({ sessionId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const [session] = await db
+        .select({
+          id: drillSessions.id,
+          status: drillSessions.status,
+          drillPlan: drillSessions.drillPlan,
+          completionData: drillSessions.completionData,
+        })
+        .from(drillSessions)
+        .where(
+          and(
+            eq(drillSessions.id, input.sessionId),
+            eq(drillSessions.userId, ctx.userId)
+          )
+        )
+        .limit(1);
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Drill session not found or you do not have access to it',
+        });
+      }
+
+      return session;
     }),
 };
 

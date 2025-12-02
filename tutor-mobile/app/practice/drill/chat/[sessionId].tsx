@@ -1,6 +1,6 @@
 import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Text, ActivityIndicator, useTheme, TextInput, IconButton, Card } from 'react-native-paper';
+import { Text, ActivityIndicator, useTheme, TextInput, IconButton, Card, Button } from 'react-native-paper';
 import { trpc } from '@/lib/trpc';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-expo';
@@ -44,6 +44,7 @@ export default function DrillChatScreen() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [completedPhaseIds, setCompletedPhaseIds] = useState<Set<string>>(new Set());
   const [recentlyCompletedPhaseId, setRecentlyCompletedPhaseId] = useState<string | null>(null);
+  const [showFinishButton, setShowFinishButton] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   // SSE connection management via custom hook
@@ -170,8 +171,17 @@ export default function DrillChatScreen() {
 
   // Handle finish button press
   const handleFinishPress = useCallback(() => {
+    if (!sessionIdNum || isNaN(sessionIdNum)) {
+      console.error('[DrillChat] Invalid sessionId:', sessionId);
+      return;
+    }
     finishSessionMutation.mutate({ sessionId: sessionIdNum });
-  }, [finishSessionMutation, sessionIdNum]);
+  }, [finishSessionMutation, sessionIdNum, sessionId]);
+
+  // Toggle finish button visibility
+  const handleProgressBarPress = useCallback(() => {
+    setShowFinishButton((prev) => !prev);
+  }, []);
 
   // Extract drill plan for progress bar
   const drillPlan = sessionQuery.data?.drillPlan as DrillPlan | undefined;
@@ -180,6 +190,13 @@ export default function DrillChatScreen() {
   const allPhasesComplete = drillPlan?.phases
     ? drillPlan.phases.length > 0 && completedPhaseIds.size === drillPlan.phases.length
     : false;
+
+  // Auto-show finish button when all phases are complete
+  useEffect(() => {
+    if (allPhasesComplete) {
+      setShowFinishButton(true);
+    }
+  }, [allPhasesComplete]);
 
   if (sessionQuery.isLoading) {
     return (
@@ -246,14 +263,34 @@ export default function DrillChatScreen() {
         keyboardVerticalOffset={100}
       >
         {drillPlan && drillPlan.phases && (
-          <DrillProgressBar
-            phases={drillPlan.phases}
-            completedPhaseIds={completedPhaseIds}
-            recentlyCompletedPhaseId={recentlyCompletedPhaseId}
-            onAnimationComplete={handlePhaseAnimationComplete}
-            allPhasesComplete={allPhasesComplete}
-            onFinishPress={handleFinishPress}
-          />
+          <>
+            <DrillProgressBar
+              phases={drillPlan.phases}
+              completedPhaseIds={completedPhaseIds}
+              recentlyCompletedPhaseId={recentlyCompletedPhaseId}
+              onAnimationComplete={handlePhaseAnimationComplete}
+              allPhasesComplete={allPhasesComplete}
+              onPress={handleProgressBarPress}
+            />
+            {showFinishButton && (
+              <View style={[styles.finishButtonContainer, { backgroundColor: theme.colors.surface }]}>
+                <Button
+                  mode={allPhasesComplete ? 'contained' : 'outlined'}
+                  onPress={handleFinishPress}
+                  style={styles.finishButton}
+                  loading={finishSessionMutation.isPending}
+                  disabled={finishSessionMutation.isPending}
+                >
+                  {allPhasesComplete ? 'Finish' : 'Leave'}
+                </Button>
+                {finishSessionMutation.isError && (
+                  <Text variant="bodySmall" style={[styles.errorText, { color: theme.colors.error }]}>
+                    Failed to finish session. Please try again.
+                  </Text>
+                )}
+              </View>
+            )}
+          </>
         )}
         {(isReconnecting || connectionError) && (
           <View style={[styles.connectionStatusContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
@@ -466,5 +503,14 @@ const styles = StyleSheet.create({
   },
   connectionStatusSpinner: {
     marginRight: 8,
+  },
+  finishButtonContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  finishButton: {
+    alignSelf: 'center',
   },
 });

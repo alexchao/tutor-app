@@ -1,4 +1,4 @@
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated, Pressable } from 'react-native';
 import { Text, Button, useTheme, type MD3Theme } from 'react-native-paper';
 import { useEffect, useRef } from 'react';
 
@@ -13,7 +13,7 @@ interface DrillProgressBarProps {
   recentlyCompletedPhaseId: string | null;
   onAnimationComplete?: () => void;
   allPhasesComplete?: boolean;
-  onFinishPress?: () => void;
+  onPress?: () => void;
 }
 
 export function DrillProgressBar({
@@ -22,7 +22,7 @@ export function DrillProgressBar({
   recentlyCompletedPhaseId,
   onAnimationComplete,
   allPhasesComplete,
-  onFinishPress,
+  onPress,
 }: DrillProgressBarProps) {
   const theme = useTheme();
 
@@ -31,8 +31,8 @@ export function DrillProgressBar({
     ? phases.find((p) => p.id === recentlyCompletedPhaseId)
     : null;
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
+  const content = (
+    <>
       <View style={styles.progressRow}>
         {phases.map((phase, index) => {
           const isCompleted = completedPhaseIds.has(phase.id);
@@ -75,17 +75,20 @@ export function DrillProgressBar({
           theme={theme}
         />
       )}
+    </>
+  );
 
-      {/* Finish button when all phases are complete */}
-      {allPhasesComplete && onFinishPress && (
-        <Button
-          mode="contained"
-          onPress={onFinishPress}
-          style={styles.finishButton}
-        >
-          Finish
-        </Button>
-      )}
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={[styles.container, { backgroundColor: theme.colors.surface }]}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
+      {content}
     </View>
   );
 }
@@ -327,10 +330,6 @@ const styles = StyleSheet.create({
   completionText: {
     fontSize: 13,
     fontWeight: '500',
-  },
-  finishButton: {
-    marginTop: 12,
-    alignSelf: 'center',
   },
 });
 

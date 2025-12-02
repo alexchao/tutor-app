@@ -1,0 +1,1 @@
+ALTER TABLE "drill_sessions" ADD COLUMN "completion_data" jsonb;

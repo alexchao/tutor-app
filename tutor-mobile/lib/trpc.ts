@@ -22,6 +22,18 @@ export function useTRPCClient() {
                 authorization: token ? `Bearer ${token}` : '',
               };
             },
+            fetch(url, options) {
+              // Add timeout to fetch requests (30 seconds)
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 30000);
+              
+              return fetch(url, {
+                ...options,
+                signal: controller.signal,
+              }).finally(() => {
+                clearTimeout(timeoutId);
+              });
+            },
           }),
         ],
       }),
