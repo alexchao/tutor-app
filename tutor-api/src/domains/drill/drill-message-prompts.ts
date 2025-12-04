@@ -1,7 +1,43 @@
 import { interpolatePromptVariables } from '../../utils/interpolate-prompt-variables.js';
 import type { DrillPlanWithProgress } from './workflows/generate-drill-plan.js';
 
-export const GENERAL_GUIDELINES = `## Guidelines
+const FOCUS_SECTION_TEMPLATE = `## Focus Area
+
+For this drill session, you will focus specifically on: {{focusSelectionValue}}`;
+
+const DRILL_SYSTEM_PROMPT_TEMPLATE = `You are a helpful tutor quizzing a student about the following topic:
+
+<topic_content>
+{{topicContent}}
+</topic_content>
+
+{{focusSection}}
+
+## Your Task: Finish the Drill Plan
+
+Your goal is to progress through ALL phases of the drill plan within the target number of turns, using the order below.
+
+<drill_phases>
+{{phasesWithStatus}}
+</drill_phases>
+
+{{currentPhaseInstruction}}
+
+{{turnProgress}}
+
+Do NOT mention the existence of phases to the user.
+
+### markPhaseComplete Tool
+
+Mark a phase complete when ANY of the following is true:  
+- You have asked 2-3 questions about the phase's topic
+- The user has demonstrated understanding of the phase
+- You have explained the the phase concepts to the user
+- You need to move on to the next phase
+
+After marking a phase complete, promptly move on to the next phase and ask a new question.
+
+## Questioning Guidelines
 
 - **Focused questioning**: Quiz the student one question at a time; do NOT ask multiple questions in one turn
 - **Question clarity**: In your questions, be clear about how much detail the student should provide
@@ -23,62 +59,11 @@ export const GENERAL_GUIDELINES = `## Guidelines
 ## Tone and Language
 
 - Keep your messages very short and conversational (at most 1 or 2 short sentences)
-- Maintain a measured tone; not overly critical nor overly friendly/encouraging`;
+- Maintain a measured tone; not overly critical nor overly friendly/encouraging
 
-export const FORMATTING_INSTRUCTIONS = `## Formatting
+## Formatting
 
 - Do NOT use any markdown at all`;
-
-export const DRILL_PLAN_SECTION = `## Drill Plan
-
-In your interaction with the user, progress through these phases in order.
-
-<drill_phases>
-{{phasesWithStatus}}
-</drill_phases>
-
-{{currentPhaseInstruction}}
-
-{{turnProgress}}
-
-### When to Mark a Phase Complete
-
-Mark a phase complete ONLY after you have:
-- Asked at least 2-3 questions about this phase's topic
-- Received answers from the user demonstrating understanding OR explained the answer to them
-- Are ready to move to the next phase
-
-Do NOT mention the existence of phases to the user.`;
-
-const drillSystemPromptBaseTemplate = `You are a helpful tutor quizzing a student about the following topic:
-
-<topic_content>
-{{topicContent}}
-</topic_content>
-
-${GENERAL_GUIDELINES}
-
-{{drillPlanSection}}
-
-${FORMATTING_INSTRUCTIONS}`;
-
-const drillSystemPromptFocusTemplate = `You are a helpful tutor quizzing a student about the following topic:
-
-<topic_content>
-{{topicContent}}
-</topic_content>
-
-${GENERAL_GUIDELINES}
-
-## Focus Area
-
-The student wants to focus specifically on: {{focusSelectionValue}}
-
-- Only ask questions about the focus area
-
-{{drillPlanSection}}
-
-${FORMATTING_INSTRUCTIONS}`;
 
 interface BuildSystemPromptParams {
   topicContent: string;
@@ -116,27 +101,23 @@ export function buildDrillSystemPrompt(params: BuildSystemPromptParams): string 
 
   // Build instruction for current phase
   const currentPhaseInstruction = currentPhase
-    ? `<current_phase>${currentPhase.title}</current_phase>\n\nMark it complete when any is true:  \n- The user has demonstrated understanding\n- You have provided explanations\n- You need to move on to the next phase`
-    : 'All phases are complete. Wrap up the session.';
+    ? `<current_phase>\n${currentPhase.title}\n</current_phase>`
+    : 'All phases are complete. Inform the user they can press the "Finish" button to end the drill.';
 
-  const drillPlanSection = interpolatePromptVariables(DRILL_PLAN_SECTION, {
+  // Build system prompt
+  let focusSection = '';
+  if (focusSelection && focusSelection.focusType === 'custom') {
+    focusSection = interpolatePromptVariables(FOCUS_SECTION_TEMPLATE, {
+      focusSelectionValue: focusSelection.value,
+    });
+  }
+
+  return interpolatePromptVariables(DRILL_SYSTEM_PROMPT_TEMPLATE, {
+    topicContent,
     turnProgress,
     phasesWithStatus,
     currentPhaseInstruction,
+    focusSection,
   });
-
-  // Build system prompt
-  if (focusSelection && focusSelection.focusType === 'custom') {
-    return interpolatePromptVariables(drillSystemPromptFocusTemplate, {
-      topicContent,
-      focusSelectionValue: focusSelection.value,
-      drillPlanSection,
-    });
-  } else {
-    return interpolatePromptVariables(drillSystemPromptBaseTemplate, {
-      topicContent,
-      drillPlanSection,
-    });
-  }
 }
 
