@@ -1,16 +1,3 @@
-import { defineConfig } from 'drizzle-kit';
+import { createDrizzleConfig } from './src/db/drizzle-config'
 
-export default defineConfig({
-  schema: './src/db/schema.ts',
-  out: './drizzle',
-  dialect: 'postgresql',
-  dbCredentials: {
-    host: process.env.PGHOST ?? 'localhost',
-    port: Number(process.env.PGPORT ?? 5432),
-    user: process.env.PGUSER ?? 'postgres',
-    password: process.env.PGPASSWORD ?? 'dbos',
-    database: process.env.PGDATABASE ?? 'tutorappdevdb',
-    ssl: process.env.NODE_ENV === 'production' ? true : false,
-  },
-});
-
+export default createDrizzleConfig('.env');

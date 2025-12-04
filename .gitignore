@@ -1,4 +1,5 @@
 tutor-api/.env
+tutor-api/.env.production
 tutor-api/.env.development
 tutor-api/node_modules
 tutor-mobile/.env
