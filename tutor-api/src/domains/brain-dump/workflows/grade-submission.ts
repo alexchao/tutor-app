@@ -132,6 +132,17 @@ async function saveGradingResultStep(
     .where(eq(practiceQuestionSubmissions.id, submissionId));
 }
 
+async function updateLastPracticedAtStep(
+  learningTopicId: number
+): Promise<void> {
+  await db
+    .update(learningTopics)
+    .set({
+      lastPracticedAt: new Date(),
+    })
+    .where(eq(learningTopics.id, learningTopicId));
+}
+
 async function gradeSubmissionWorkflowFunction(
   input: GradeSubmissionInput
 ): Promise<void> {
@@ -179,6 +190,12 @@ async function gradeSubmissionWorkflowFunction(
   await DBOS.runStep(
     () => saveGradingResultStep(submissionId, gradingResult),
     { name: 'saveGradingResult' }
+  );
+
+  // Step 3: Update lastPracticedAt on the learning topic
+  await DBOS.runStep(
+    () => updateLastPracticedAtStep(submission.learningTopicId),
+    { name: 'updateLastPracticedAt' }
   );
 }
 
