@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { protectedProcedure } from '../procedures.js';
 import { db } from '../db/connection.js';
 import { learningTopics } from '../db/schema.js';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 
 export const learningTopicsRouter = {
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -10,7 +10,12 @@ export const learningTopicsRouter = {
       .select()
       .from(learningTopics)
       .where(eq(learningTopics.userId, ctx.userId))
-      .orderBy(desc(learningTopics.createdAt));
+      .orderBy(
+        // Sort by lastPracticedAt ascending, with nulls first (never practiced topics at top)
+        sql`${learningTopics.lastPracticedAt} NULLS FIRST`,
+        // Then by createdAt descending as a tiebreaker
+        desc(learningTopics.createdAt)
+      );
   }),
 
   create: protectedProcedure

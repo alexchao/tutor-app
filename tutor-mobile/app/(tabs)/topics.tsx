@@ -39,9 +39,16 @@ export default function TopicsScreen() {
               <Card.Content>
                 <Text variant="titleLarge" style={styles.topicTitle}>{item.title}</Text>
                 <View style={styles.topicFooter}>
-                  <Text variant="bodySmall" style={styles.topicDate}>
-                    {new Date(item.createdAt).toLocaleDateString()}
-                  </Text>
+                  <View>
+                    <Text variant="bodySmall" style={styles.topicDate}>
+                      {item.lastPracticedAt ? 'Last practiced' : 'Never practiced'}
+                    </Text>
+                    {item.lastPracticedAt && (
+                      <Text variant="bodySmall" style={[styles.topicDate, styles.boldDate]}>
+                        {new Date(item.lastPracticedAt).toLocaleDateString()}
+                      </Text>
+                    )}
+                  </View>
                   <View style={styles.buttonContainer}>
                     <Button
                       mode="outlined"
@@ -115,6 +122,9 @@ const styles = StyleSheet.create({
   },
   topicDate: {
     marginTop: 4,
+  },
+  boldDate: {
+    fontWeight: 'bold',
   },
   topicFooter: {
     flexDirection: 'row',

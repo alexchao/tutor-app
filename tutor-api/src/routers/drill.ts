@@ -161,14 +161,24 @@ export const drillRouter = {
         });
       }
 
+      const now = new Date();
+
       // Update status to 'chat-completed' and set chatCompletedAt
       await db
         .update(drillSessions)
         .set({
           status: 'chat-completed',
-          chatCompletedAt: new Date(),
+          chatCompletedAt: now,
         })
         .where(eq(drillSessions.id, input.sessionId));
+
+      // Update lastPracticedAt on the learning topic
+      await db
+        .update(learningTopics)
+        .set({
+          lastPracticedAt: now,
+        })
+        .where(eq(learningTopics.id, session.learningTopicId));
 
       // Start summarization workflow in background (returns handle, doesn't wait for completion)
       await DBOS.startWorkflow(summarizeDrillSessionWorkflow)({

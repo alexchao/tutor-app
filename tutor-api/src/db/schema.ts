@@ -5,6 +5,7 @@ export const learningTopics = pgTable('learning_topics', {
   userId: text('user_id').notNull(),
   title: text('title').notNull(),
   contentMd: text('content_md').notNull(),
+  lastPracticedAt: timestamp('last_practiced_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdate(() => new Date()),
 });

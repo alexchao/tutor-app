@@ -1,0 +1,1 @@
+ALTER TABLE "learning_topics" ADD COLUMN "last_practiced_at" timestamp;

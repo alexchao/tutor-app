@@ -38,6 +38,10 @@ Uses **Clerk** for secure user authentication:
 - **protectedProcedure** - tRPC procedure that requires authentication
 - **publicProcedure** - tRPC procedure accessible without auth
 
+### DB Migrations
+
+Do NOT generate or run DB migrations yourself. The user will do this.
+
 ## Project Structure
 
 ```
@@ -381,4 +385,3 @@ pnpm build
 ### Workflow Not Resuming
 
 DBOS tracks workflows by application version. If you change workflow code significantly, DBOS may not resume old workflows. This is by design for safety.
-
