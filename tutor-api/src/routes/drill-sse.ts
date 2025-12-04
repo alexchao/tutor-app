@@ -9,6 +9,28 @@ interface DrillStreamParams {
   sessionId: string;
 }
 
+interface ActiveSSEConnection {
+  reply: FastifyReply;
+  heartbeatInterval: NodeJS.Timeout;
+  messageHandler: (message: any) => void;
+}
+
+// Track all active SSE connections for graceful shutdown
+const activeConnections = new Set<ActiveSSEConnection>();
+
+export function closeAllSSEConnections(): void {
+  for (const connection of activeConnections) {
+    clearInterval(connection.heartbeatInterval);
+    try {
+      connection.reply.raw.end();
+    } catch (frError) {
+      // Connection may already be closed
+      console.error('Received error closing fastify reply for SSE connection', frError);
+    }
+  }
+  activeConnections.clear();
+}
+
 export async function registerDrillSSERoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get(
     '/api/drill/stream/:sessionId',
@@ -51,8 +73,9 @@ export async function registerDrillSSERoutes(fastify: FastifyInstance): Promise<
       });
 
       // Subscribe to Ably channel
-      const channel = ablyClient.channels.get(`drill:${sessionIdNum}`);
-      
+      const channelName = `drill:${sessionIdNum}`;
+      const channel = ablyClient.channels.get(channelName);
+
       const messageHandler = (message: any) => {
         const data = JSON.stringify(message.data);
         reply.raw.write(`data: ${data}\n\n`);
@@ -65,10 +88,19 @@ export async function registerDrillSSERoutes(fastify: FastifyInstance): Promise<
         reply.raw.write(': heartbeat\n\n');
       }, 30000);
 
+      // Track this connection
+      const connection: ActiveSSEConnection = {
+        reply,
+        heartbeatInterval,
+        messageHandler,
+      };
+      activeConnections.add(connection);
+
       // Handle client disconnect
       request.raw.on('close', async () => {
         clearInterval(heartbeatInterval);
         await channel.unsubscribe('message', messageHandler);
+        activeConnections.delete(connection);
       });
     }
   );
