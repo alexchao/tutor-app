@@ -1,4 +1,4 @@
-import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, ActivityIndicator, useTheme, TextInput, IconButton, Card, Button } from 'react-native-paper';
 import { trpc } from '@/lib/trpc';
@@ -163,6 +163,23 @@ export default function DrillChatScreen() {
       }, 100);
     }
   }, [chatEvents]);
+
+  // Auto-scroll when keyboard appears
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        // Small delay to allow KeyboardAvoidingView to adjust layout
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+    };
+  }, []);
 
   // Callback to clear the recently completed phase after animation
   const handlePhaseAnimationComplete = useCallback(() => {
