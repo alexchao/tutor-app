@@ -74,9 +74,9 @@ Create drill phases that directly address each of these focus areas. Each phase 
 // Phase guidelines for "everything" focus (null focusSelection)
 const everythingPhaseGuidelines = `### Phase Guidelines
 
-1. **Coverage**: Ensure the phases collectively cover the key concepts from the topic content
-2. **Progression**: Order phases from foundational concepts to more advanced ones
-3. **Final Phase**: The last phase MUST be a culminating/application phase that requires the student to apply their knowledge to a specific situation or problem
+1. **Coverage**: Pick at most 3-4 concepts from the topic content.
+   - For lengthy topic content, do NOT try to cover everything. Still pick just 4 specific concepts. Areas not covered will be covered in future drill sessions.
+2. **Progression**: Order phases logically such that each phase builds on the previous one (following the topic content)
 4. **Distinct Concepts**: Each phase should focus on a different concept - avoid overlap between phases
 5. **Specific Concepts**: Each phase should focus on a narrow, specific concept - avoid broad or general phrasing`;
 
@@ -85,7 +85,6 @@ const customFocusPhaseGuidelines = `### Phase Guidelines
 
 1. **Focus Alignment**: All phases must directly relate to the student's specified focus area
 2. **Different Aspects**: Each phase should cover a different aspect or angle of the focus area
-3. **Final Phase**: The last phase MUST be a culminating/application phase that requires the student to apply their knowledge to a specific situation or problem
 4. **Distinct Concepts**: Each phase should focus on a different concept - avoid overlap between phases
 5. **Specific Concepts**: Each phase should focus on a narrow, specific concept - avoid broad or general phrasing`;
 
@@ -94,7 +93,6 @@ const previousFocusAreasPhaseGuidelines = `### Phase Guidelines
 
 1. **Address Focus Areas**: Each phase should target one or more of the provided focus areas
 2. **Complete Coverage**: Ensure all provided focus areas are addressed across the phases
-3. **Final Phase**: The last phase MUST be a culminating/application phase that requires the student to apply their knowledge to a specific situation or problem
 4. **Distinct Concepts**: Each phase should focus on a different concept - avoid overlap between phases
 5. **Specific Concepts**: Each phase should focus on a narrow, specific concept - avoid broad or general phrasing`;
 
